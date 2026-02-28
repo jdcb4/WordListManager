@@ -16,4 +16,6 @@ COPY . .
 
 RUN python manage.py collectstatic --noinput
 
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn wordlist_manager.wsgi --bind 0.0.0.0:${PORT:-8000} --access-logfile - --error-logfile - --log-level info"]
+RUN chmod +x /app/start.sh
+
+CMD ["/app/start.sh"]
