@@ -2,6 +2,6 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python manage.py migrate && gunicorn wordlist_manager.wsgi --bind 0.0.0.0:$PORT"
+startCommand = "python manage.py migrate --noinput && gunicorn wordlist_manager.wsgi --bind 0.0.0.0:$PORT"
 healthcheckPath = "/api/v1/manifest"
 restartPolicyType = "ON_FAILURE"

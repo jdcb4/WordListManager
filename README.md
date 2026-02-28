@@ -83,7 +83,7 @@ python manage.py dedupe_words
 1. Set environment variables:
    - `DEBUG=false`
    - `SECRET_KEY=<strong random value>`
-   - `ALLOWED_HOSTS=<your Railway app domain>`
+   - `ALLOWED_HOSTS=<your Railway app domain>` (or `*` temporarily for troubleshooting)
    - `CSRF_TRUSTED_ORIGINS=https://<your Railway app domain>`
 2. Validate health endpoint:
    - `/api/v1/manifest` returns HTTP 200.

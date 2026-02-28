@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -16,12 +17,41 @@ EXPORTS_DIR.mkdir(exist_ok=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "*").split(",") if host.strip()]
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin.strip()
-]
+
+
+def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
+    hosts: list[str] = []
+    for part in raw_hosts.split(","):
+        candidate = part.strip()
+        if not candidate:
+            continue
+        if candidate == "*":
+            return ["*"]
+        if "://" in candidate:
+            parsed = urlparse(candidate)
+            if parsed.hostname:
+                hosts.append(parsed.hostname)
+            continue
+        hosts.append(candidate.split("/")[0])
+    return hosts or ["*"]
+
+
+def _parse_csrf_trusted_origins(raw_origins: str) -> list[str]:
+    origins: list[str] = []
+    for part in raw_origins.split(","):
+        candidate = part.strip()
+        if not candidate:
+            continue
+        if not candidate.startswith(("http://", "https://")):
+            candidate = f"https://{candidate}"
+        parsed = urlparse(candidate)
+        if parsed.scheme and parsed.netloc:
+            origins.append(f"{parsed.scheme}://{parsed.netloc}")
+    return origins
+
+
+ALLOWED_HOSTS = _parse_allowed_hosts(os.getenv("ALLOWED_HOSTS", "*"))
+CSRF_TRUSTED_ORIGINS = _parse_csrf_trusted_origins(os.getenv("CSRF_TRUSTED_ORIGINS", ""))
 
 
 # Application definition
@@ -72,9 +102,10 @@ WSGI_APPLICATION = 'wordlist_manager.wsgi.application'
 
 
 default_db_url = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+database_url = os.getenv("DATABASE_URL") or default_db_url
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv("DATABASE_URL", default_db_url),
+        database_url,
         conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "600")),
         ssl_require=os.getenv("DB_SSL_REQUIRE", "false").lower() == "true",
     )
