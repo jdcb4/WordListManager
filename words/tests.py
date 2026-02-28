@@ -5,7 +5,7 @@ from words.services.datasets import publish_dataset
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
 from words.services.normalization import normalized_key, sanitize_text
-from words.services.staging import create_batch_from_csv, review_staged_word
+from words.services.staging import create_batch_from_csv, create_batch_from_json, review_staged_word
 
 
 class NormalizationTests(TestCase):
@@ -61,5 +61,14 @@ class StagingTests(TestCase):
         self.assertTrue(
             WordEntry.objects.filter(sanitized_text="Albert Einstein", word_type=WordType.GUESSING).exists()
         )
+
+    def test_upload_json_batch(self):
+        json_bytes = (
+            b'[{"word":"Sydney Harbour Bridge","word_type":"guessing","category":"Where","hint":"Iconic bridge"},'
+            b'{"word":"Paintbrush","word_type":"describing"}]'
+        )
+        batch = create_batch_from_json(file_name="new_words.json", file_bytes=json_bytes)
+        self.assertEqual(batch.total_rows, 2)
+        self.assertEqual(batch.staged_words.count(), 2)
 
 # Create your tests here.

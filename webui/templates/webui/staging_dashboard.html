@@ -7,8 +7,8 @@
   <form method="post" action="/manage/staging/upload/" enctype="multipart/form-data">
     {% csrf_token %}
     <label>
-      CSV file
-      <input type="file" name="upload_file" accept=".csv,text/csv" required>
+      CSV or JSON file
+      <input type="file" name="upload_file" accept=".csv,.json,text/csv,application/json" required>
     </label>
     <label>
       Note
@@ -16,7 +16,8 @@
     </label>
     <button type="submit">Upload To Staging</button>
   </form>
-  <p class="muted">Expected columns: word, word_type, category, subcategory, hint, difficulty.</p>
+  <p class="muted">Expected fields: word, word_type, category, subcategory, hint, difficulty.</p>
+  <p class="muted">Use sample files from `sample_uploads/` for quick testing.</p>
 </section>
 
 <section class="panel">

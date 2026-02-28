@@ -13,10 +13,31 @@
   </p>
   <p>Total active words: <strong>{{ total_active }}</strong></p>
   {% if user.is_staff %}
-  <form method="post" action="/manage/publish/">
-    {% csrf_token %}
-    <button type="submit">Publish New Version (If Changed)</button>
-  </form>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <form method="post" action="/manage/publish/">
+      {% csrf_token %}
+      <button type="submit">One-Click Publish</button>
+    </form>
+    <form method="post" action="/manage/actions/import-source/">
+      {% csrf_token %}
+      <button type="submit">Import Source Data</button>
+    </form>
+    <form method="post" action="/manage/actions/dedupe/">
+      {% csrf_token %}
+      <button type="submit">Run Dedupe</button>
+    </form>
+    <form method="post" action="/manage/actions/validate/">
+      {% csrf_token %}
+      <button type="submit">Run Validation</button>
+    </form>
+    <form method="post" action="/manage/actions/check-deploy/">
+      {% csrf_token %}
+      <button type="submit">Check Deploy Config</button>
+    </form>
+  </div>
+  <p class="muted">
+    One-Click Publish runs dedupe + validation + publish/export in a single action.
+  </p>
   <p>
     <a href="/manage/feedback/">Review Feedback</a> |
     <a href="/manage/staging/">Staging Uploads</a>

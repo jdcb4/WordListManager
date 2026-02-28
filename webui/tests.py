@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from words.models import FeedbackResolution, FeedbackVerdict, StagedWordStatus, WordEntry, WordFeedback, WordType
@@ -54,3 +55,24 @@ class ManagementBulkActionTests(TestCase):
         self.assertTrue(
             WordEntry.objects.filter(sanitized_text="Marie Curie", word_type=WordType.GUESSING).exists()
         )
+
+    def test_upload_staging_json_file(self):
+        payload = (
+            b'[{"word":"Harbour","word_type":"describing","difficulty":"easy"},'
+            b'{"word":"Ada Lovelace","word_type":"guessing","category":"Who"}]'
+        )
+        upload = SimpleUploadedFile("sample.json", payload, content_type="application/json")
+        response = self.client.post(
+            "/manage/staging/upload/",
+            data={"upload_file": upload, "note": "json upload"},
+        )
+        self.assertEqual(response.status_code, 302)
+
+    def test_manage_actions_routes(self):
+        WordEntry.objects.create(text="Balloon", word_type=WordType.DESCRIBING)
+        response_validate = self.client.post("/manage/actions/validate/")
+        response_dedupe = self.client.post("/manage/actions/dedupe/")
+        response_check = self.client.post("/manage/actions/check-deploy/")
+        self.assertEqual(response_validate.status_code, 302)
+        self.assertEqual(response_dedupe.status_code, 302)
+        self.assertEqual(response_check.status_code, 302)

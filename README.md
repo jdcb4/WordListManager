@@ -25,10 +25,12 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
 - Web UI:
   - `GET /` browse/filter words + download links
   - `GET /manage/` authenticated management dashboard
-  - Staff-only publish action from dashboard
+  - Staff one-click publish action from dashboard
+  - Dashboard actions for import, dedupe, validate, deploy config check
   - `GET /feedback/` mobile-friendly feedback capture
   - `GET /manage/feedback/` feedback review queue
   - `GET /manage/staging/` upload and review staged words
+  - Staging upload accepts CSV and JSON
   - Bulk moderation actions for feedback and staging queues
 - Rate limiting configured in DRF (`anon`, `user`, `exports` scopes).
 
@@ -73,6 +75,25 @@ python manage.py validate_wordlist
 python manage.py validate_wordlist --fail-on-warnings
 ```
 6. Clients check `/api/v1/manifest` weekly and compare `version_number` or `checksum_sha256`.
+
+## Staging upload format
+
+CSV and JSON uploads are supported in `/manage/staging/`.
+
+- CSV fields:
+  - `word`, `word_type`, `category`, `subcategory`, `hint`, `difficulty`
+- JSON shape:
+  - List of objects or `{"words":[...]}`
+  - Same fields as CSV keys
+
+Sample upload fixtures are in `sample_uploads/`:
+
+- `sample_correct_words.csv`
+- `sample_duplicate_words.csv`
+- `sample_incomplete_words.csv`
+- `sample_correct_words.json`
+- `sample_duplicate_words.json`
+- `sample_incomplete_words.json`
 
 ## Client sync example
 

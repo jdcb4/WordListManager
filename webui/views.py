@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter
+from io import StringIO
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db.models import Count
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -20,8 +23,10 @@ from words.models import (
     WordEntry,
     WordFeedback,
 )
+from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
-from words.services.staging import create_batch_from_csv, review_staged_word
+from words.services.quality import validate_wordlist
+from words.services.staging import create_batch_from_upload, review_staged_word
 
 
 def home(request):
@@ -75,6 +80,22 @@ def manage_dashboard(request):
     return render(request, "webui/manage.html", context)
 
 
+def _command_output(command_name: str, **kwargs) -> tuple[bool, str]:
+    stdout = StringIO()
+    try:
+        call_command(command_name, stdout=stdout, stderr=stdout, **kwargs)
+        return True, stdout.getvalue().strip()
+    except CommandError as exc:
+        output = stdout.getvalue().strip()
+        return False, "\n".join(part for part in [output, str(exc)] if part).strip()
+
+
+def _shorten(text: str, max_len: int = 500) -> str:
+    if len(text) <= max_len:
+        return text
+    return f"{text[:max_len]}..."
+
+
 @require_POST
 @login_required
 @user_passes_test(lambda user: user.is_staff)
@@ -91,6 +112,62 @@ def publish_now(request):
         messages.success(request, f"Published version v{report['dataset_version']}.")
     else:
         messages.info(request, f"No data changes; current version is v{report['dataset_version']}.")
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_manage_import(request: HttpRequest) -> HttpResponse:
+    ok, output = _command_output("import_source_data")
+    if ok:
+        messages.success(request, _shorten(output or "Import completed."))
+    else:
+        messages.error(request, _shorten(output or "Import failed."))
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_manage_dedupe(request: HttpRequest) -> HttpResponse:
+    report = dedupe_word_entries(dry_run=False)
+    messages.success(
+        request,
+        f"Dedupe completed. Groups: {report['groups']}, "
+        f"duplicate rows: {report['duplicate_rows']}, deleted: {report['deleted_rows']}.",
+    )
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_manage_validate(request: HttpRequest) -> HttpResponse:
+    report = validate_wordlist()
+    if report["error_count"] > 0:
+        messages.error(
+            request,
+            f"Validation failed. Errors: {report['error_count']}, warnings: {report['warning_count']}.",
+        )
+    else:
+        messages.success(
+            request,
+            f"Validation passed. Checked {report['checked_words']} words, "
+            f"warnings: {report['warning_count']}.",
+        )
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_manage_check_deploy(request: HttpRequest) -> HttpResponse:
+    ok, output = _command_output("check_deploy_config")
+    if ok:
+        messages.success(request, _shorten(output or "Deploy config check complete."))
+    else:
+        messages.error(request, _shorten(output or "Deploy config check failed."))
     return redirect("manage-dashboard")
 
 
@@ -230,16 +307,21 @@ def upload_staging_csv(request: HttpRequest) -> HttpResponse:
     upload = request.FILES.get("upload_file")
     note = request.POST.get("note", "")
     if upload is None:
-        messages.error(request, "Choose a CSV file to upload.")
+        messages.error(request, "Choose a CSV or JSON file to upload.")
         return redirect("staging-dashboard")
 
-    batch = create_batch_from_csv(
-        file_name=upload.name,
-        file_bytes=upload.read(),
-        created_by=request.user,
-        note=note,
-    )
-    messages.success(request, f"Uploaded batch {batch.id} with {batch.total_rows} rows.")
+    try:
+        batch = create_batch_from_upload(
+            file_name=upload.name,
+            file_bytes=upload.read(),
+            created_by=request.user,
+            note=note,
+        )
+    except Exception as exc:
+        messages.error(request, f"Upload failed: {exc}")
+        return redirect("staging-dashboard")
+
+    messages.success(request, f"Uploaded {upload.name} as batch {batch.id} with {batch.total_rows} rows.")
     return redirect("staging-dashboard")
 
 
