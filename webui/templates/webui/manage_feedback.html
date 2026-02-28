@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Manage Feedback{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Feedback Review</h1>
+  <p class="muted">
+    Pending good: <strong>{{ pending_good_count }}</strong>
+    | Pending bad: <strong>{{ pending_bad_count }}</strong>
+  </p>
+  <p><a href="/manage/">Back to dashboard</a></p>
+</section>
+
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Word</th>
+        <th>Comment</th>
+        <th>Submitted</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in pending_bad %}
+      <tr>
+        <td>{{ item.word.sanitized_text }}</td>
+        <td>{{ item.comment }}</td>
+        <td>{{ item.created_at }}</td>
+        <td>
+          <form method="post" action="/manage/feedback/resolve/" style="display:flex; gap:6px; flex-wrap:wrap;">
+            {% csrf_token %}
+            <input type="hidden" name="feedback_id" value="{{ item.id }}">
+            <select name="resolution">
+              <option value="keep">Keep</option>
+              <option value="deactivate">Deactivate</option>
+              <option value="ignore">Ignore</option>
+            </select>
+            <input type="text" name="note" placeholder="review note">
+            <button type="submit">Process</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4">No pending bad feedback.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

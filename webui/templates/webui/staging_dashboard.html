@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Staging Uploads{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Staging Uploads</h1>
+  <p class="muted">Upload CSV files, then approve/reject staged words.</p>
+  <form method="post" action="/manage/staging/upload/" enctype="multipart/form-data">
+    {% csrf_token %}
+    <label>
+      CSV file
+      <input type="file" name="upload_file" accept=".csv,text/csv" required>
+    </label>
+    <label>
+      Note
+      <input type="text" name="note" placeholder="optional note">
+    </label>
+    <button type="submit">Upload To Staging</button>
+  </form>
+  <p class="muted">Expected columns: word, word_type, category, subcategory, hint, difficulty.</p>
+</section>
+
+<section class="panel">
+  <h2>Recent Batches</h2>
+  <table>
+    <thead><tr><th>ID</th><th>File</th><th>Status</th><th>Total Rows</th><th>Created</th></tr></thead>
+    <tbody>
+      {% for batch in batches %}
+      <tr>
+        <td>{{ batch.id }}</td>
+        <td>{{ batch.source_filename }}</td>
+        <td>{{ batch.status }}</td>
+        <td>{{ batch.total_rows }}</td>
+        <td>{{ batch.created_at }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5">No batches uploaded.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>Pending Staged Words</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Word</th>
+        <th>Type</th>
+        <th>Category</th>
+        <th>Hint</th>
+        <th>Batch</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in pending_words %}
+      <tr>
+        <td>{{ item.sanitized_text }}</td>
+        <td>{{ item.word_type }}</td>
+        <td>{{ item.category_name }}</td>
+        <td>{{ item.hint }}</td>
+        <td>{{ item.batch_id }}</td>
+        <td>
+          <form method="post" action="/manage/staging/review/" style="display:flex; gap:6px; flex-wrap:wrap;">
+            {% csrf_token %}
+            <input type="hidden" name="staged_word_id" value="{{ item.id }}">
+            <input type="text" name="note" placeholder="review note">
+            <button type="submit" name="action" value="approve">Approve</button>
+            <button type="submit" name="action" value="reject" style="background:#a3342b;">Reject</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No pending staged words.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

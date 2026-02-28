@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from words.models import Category, DatasetVersion, ExportArtifact, WordEntry
+from words.models import (
+    Category,
+    DatasetVersion,
+    ExportArtifact,
+    ImportBatch,
+    StagedWord,
+    WordEntry,
+    WordFeedback,
+)
 
 
 @admin.register(Category)
@@ -44,5 +52,29 @@ class ExportArtifactAdmin(admin.ModelAdmin):
     )
     list_filter = ("export_format",)
     search_fields = ("file_path", "checksum_sha256")
+
+
+@admin.register(WordFeedback)
+class WordFeedbackAdmin(admin.ModelAdmin):
+    list_display = ("word", "verdict", "is_processed", "resolution", "created_at")
+    list_filter = ("verdict", "is_processed", "resolution")
+    search_fields = ("word__sanitized_text", "comment", "manager_note")
+    autocomplete_fields = ("word", "processed_by")
+
+
+@admin.register(ImportBatch)
+class ImportBatchAdmin(admin.ModelAdmin):
+    list_display = ("id", "source_filename", "status", "total_rows", "created_by", "created_at")
+    list_filter = ("status",)
+    search_fields = ("source_filename", "note")
+    autocomplete_fields = ("created_by",)
+
+
+@admin.register(StagedWord)
+class StagedWordAdmin(admin.ModelAdmin):
+    list_display = ("sanitized_text", "word_type", "category_name", "status", "batch", "created_at")
+    list_filter = ("status", "word_type", "difficulty")
+    search_fields = ("sanitized_text", "normalized_text", "category_name", "hint", "review_note")
+    autocomplete_fields = ("batch", "reviewed_by", "resulting_word")
 
 # Register your models here.

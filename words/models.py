@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Max
+from django.utils import timezone
 
 from words.services.normalization import normalized_key, sanitize_text
+
+User = get_user_model()
 
 
 class TimestampedModel(models.Model):
@@ -127,5 +131,113 @@ class ExportArtifact(TimestampedModel):
 
     def __str__(self) -> str:
         return f"{self.dataset_version} {self.export_format}"
+
+
+class FeedbackVerdict(models.TextChoices):
+    GOOD = "good", "Good"
+    BAD = "bad", "Bad"
+
+
+class FeedbackResolution(models.TextChoices):
+    KEEP = "keep", "Keep"
+    DEACTIVATE = "deactivate", "Deactivate"
+    IGNORE = "ignore", "Ignore"
+
+
+class WordFeedback(TimestampedModel):
+    word = models.ForeignKey(WordEntry, on_delete=models.CASCADE, related_name="feedback")
+    verdict = models.CharField(max_length=16, choices=FeedbackVerdict.choices)
+    reporter_token = models.CharField(max_length=64, blank=True, db_index=True)
+    comment = models.TextField(blank=True)
+    is_processed = models.BooleanField(default=False, db_index=True)
+    resolution = models.CharField(max_length=16, choices=FeedbackResolution.choices, blank=True)
+    manager_note = models.TextField(blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="processed_feedback"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def mark_processed(self, *, by_user: User, resolution: str, note: str = "") -> None:
+        self.is_processed = True
+        self.resolution = resolution
+        self.manager_note = sanitize_text(note)
+        self.processed_at = timezone.now()
+        self.processed_by = by_user
+        self.save(
+            update_fields=[
+                "is_processed",
+                "resolution",
+                "manager_note",
+                "processed_at",
+                "processed_by",
+                "updated_at",
+            ]
+        )
+
+
+class ImportBatchStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    IN_REVIEW = "in_review", "In Review"
+    COMPLETED = "completed", "Completed"
+
+
+class ImportBatch(TimestampedModel):
+    source_filename = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=ImportBatchStatus.choices, default=ImportBatchStatus.PENDING)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="import_batches"
+    )
+    total_rows = models.PositiveIntegerField(default=0)
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"Batch {self.id} ({self.source_filename})"
+
+
+class StagedWordStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
+class StagedWord(TimestampedModel):
+    batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name="staged_words")
+    text = models.CharField(max_length=255)
+    sanitized_text = models.CharField(max_length=255, editable=False, db_index=True)
+    normalized_text = models.CharField(max_length=255, editable=False, db_index=True)
+    word_type = models.CharField(max_length=24, choices=WordType.choices, default=WordType.GUESSING)
+    category_name = models.CharField(max_length=64, blank=True)
+    subcategory = models.CharField(max_length=128, blank=True)
+    hint = models.TextField(blank=True)
+    difficulty = models.CharField(max_length=16, blank=True, choices=Difficulty.choices)
+    status = models.CharField(max_length=16, choices=StagedWordStatus.choices, default=StagedWordStatus.PENDING)
+    review_note = models.TextField(blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviewed_staged_words"
+    )
+    resulting_word = models.ForeignKey(
+        WordEntry, null=True, blank=True, on_delete=models.SET_NULL, related_name="staged_origins"
+    )
+
+    class Meta:
+        ordering = ["status", "created_at"]
+
+    def save(self, *args, **kwargs):
+        self.sanitized_text = sanitize_text(self.text)
+        self.normalized_text = normalized_key(self.text)
+        self.category_name = sanitize_text(self.category_name)
+        self.subcategory = sanitize_text(self.subcategory)
+        self.hint = sanitize_text(self.hint)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.sanitized_text} ({self.word_type})"
 
 # Create your models here.

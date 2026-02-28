@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Word Feedback{% endblock %}
+{% block content %}
+<section class="panel" style="max-width: 760px; margin: 0 auto;">
+  <h1>Word Quality Feedback</h1>
+  <p class="muted">Tap good/bad to help improve the list.</p>
+  {% if word %}
+    <div style="padding: 18px; border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 12px;">
+      <div class="muted">Current word</div>
+      <div style="font-size: 32px; font-weight: 700;">{{ word.sanitized_text }}</div>
+      <div class="muted">
+        {{ word.word_type }}
+        {% if word.category %}| {{ word.category.name }}{% endif %}
+        {% if word.difficulty %}| {{ word.difficulty }}{% endif %}
+      </div>
+    </div>
+    <form method="post" action="/feedback/submit/">
+      {% csrf_token %}
+      <input type="hidden" name="word_id" value="{{ word.id }}">
+      <label style="display:block; margin-bottom: 8px;">
+        Optional note
+        <input type="text" name="comment" placeholder="why?" style="width:100%;">
+      </label>
+      <div style="display:flex; gap:8px;">
+        <button type="submit" name="verdict" value="good">Good</button>
+        <button type="submit" name="verdict" value="bad" style="background:#a3342b;">Bad</button>
+      </div>
+    </form>
+  {% else %}
+    <p>No active words available.</p>
+  {% endif %}
+</section>
+
+<section class="panel" style="max-width: 760px; margin: 0 auto;">
+  <h2>Recent Submissions</h2>
+  <table>
+    <thead><tr><th>Word</th><th>Verdict</th><th>When</th></tr></thead>
+    <tbody>
+      {% for item in recent_feedback %}
+      <tr>
+        <td>{{ item.word.sanitized_text }}</td>
+        <td>{{ item.verdict }}</td>
+        <td>{{ item.created_at }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3">No submissions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

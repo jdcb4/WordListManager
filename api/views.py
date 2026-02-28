@@ -4,15 +4,19 @@ from pathlib import Path
 
 from django.db.models import Count
 from django.http import FileResponse, Http404
-from rest_framework import permissions, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from api.filters import WordEntryFilter
-from api.serializers import DatasetManifestSerializer, WordEntrySerializer
-from words.models import DatasetVersion, ExportFormat, WordEntry
+from api.serializers import (
+    DatasetManifestSerializer,
+    WordEntrySerializer,
+    WordFeedbackCreateSerializer,
+)
+from words.models import DatasetVersion, ExportFormat, WordEntry, WordFeedback
 
 
 class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -114,5 +118,26 @@ class LatestExportView(APIView):
         response["ETag"] = artifact.checksum_sha256
         response["X-Wordlist-Version"] = str(latest.version_number)
         return response
+
+
+class FeedbackCreateView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "user"
+
+    def post(self, request):
+        serializer = WordFeedbackCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not request.session.session_key:
+            request.session.create()
+
+        feedback = WordFeedback.objects.create(
+            word=serializer.validated_data["word"],
+            verdict=serializer.validated_data["verdict"],
+            comment=serializer.validated_data.get("comment", ""),
+            reporter_token=request.session.session_key or "",
+        )
+        return Response({"id": feedback.id, "status": "recorded"}, status=status.HTTP_201_CREATED)
 
 # Create your views here.

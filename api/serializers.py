@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework import serializers
 
-from words.models import DatasetVersion, ExportArtifact, WordEntry
+from words.models import DatasetVersion, ExportArtifact, WordEntry, WordFeedback
 
 
 class WordEntrySerializer(serializers.ModelSerializer):
@@ -56,3 +56,15 @@ class DatasetManifestSerializer(serializers.ModelSerializer):
             "created_at",
             "exports",
         ]
+
+
+class WordFeedbackCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WordFeedback
+        fields = ["word", "verdict", "comment"]
+
+    def validate(self, attrs):
+        word = attrs["word"]
+        if not word.is_active:
+            raise serializers.ValidationError("Feedback can only be submitted for active words.")
+        return attrs

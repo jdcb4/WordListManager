@@ -17,6 +17,10 @@
     {% csrf_token %}
     <button type="submit">Publish New Version (If Changed)</button>
   </form>
+  <p>
+    <a href="/manage/feedback/">Review Feedback</a> |
+    <a href="/manage/staging/">Staging Uploads</a>
+  </p>
   {% endif %}
   <p><a href="/admin/" target="_blank" rel="noopener">Open Django Admin</a></p>
 </section>
