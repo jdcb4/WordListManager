@@ -20,9 +20,17 @@ DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
 
 def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
+    railway_detected = any(
+        os.getenv(key)
+        for key in ("RAILWAY_PROJECT_ID", "RAILWAY_ENVIRONMENT_ID", "RAILWAY_PUBLIC_DOMAIN")
+    )
+    strict_host_check = os.getenv("RAILWAY_STRICT_HOST_CHECK", "false").strip().lower() == "true"
+    if railway_detected and not strict_host_check:
+        return ["*"]
+
     hosts: list[str] = ["localhost", "127.0.0.1", "[::1]"]
     for part in raw_hosts.split(","):
-        candidate = part.strip()
+        candidate = part.strip().strip("\"'")
         if not candidate:
             continue
         if candidate == "*":
@@ -43,7 +51,7 @@ def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
 def _parse_csrf_trusted_origins(raw_origins: str) -> list[str]:
     origins: list[str] = []
     for part in raw_origins.split(","):
-        candidate = part.strip()
+        candidate = part.strip().strip("\"'")
         if not candidate:
             continue
         if not candidate.startswith(("http://", "https://")):
