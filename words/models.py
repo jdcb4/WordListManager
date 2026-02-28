@@ -29,6 +29,22 @@ class Category(TimestampedModel):
         return self.name
 
 
+class Collection(TimestampedModel):
+    name = models.CharField(max_length=64, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @classmethod
+    def get_base(cls) -> "Collection":
+        collection, _ = cls.objects.get_or_create(name="Base", defaults={"is_active": True})
+        return collection
+
+
 class WordType(models.TextChoices):
     GUESSING = "guessing", "Guessing"
     DESCRIBING = "describing", "Describing"
@@ -47,6 +63,13 @@ class WordEntry(TimestampedModel):
     word_type = models.CharField(max_length=24, choices=WordType.choices)
     category = models.ForeignKey(
         Category,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="words",
+    )
+    collection = models.ForeignKey(
+        Collection,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -79,6 +102,8 @@ class WordEntry(TimestampedModel):
         self.normalized_text = normalized_key(self.text)
         self.subcategory = sanitize_text(self.subcategory)
         self.hint = sanitize_text(self.hint)
+        if self.collection_id is None:
+            self.collection = Collection.get_base()
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
@@ -213,6 +238,7 @@ class StagedWord(TimestampedModel):
     normalized_text = models.CharField(max_length=255, editable=False, db_index=True)
     word_type = models.CharField(max_length=24, choices=WordType.choices, default=WordType.GUESSING)
     category_name = models.CharField(max_length=64, blank=True)
+    collection_name = models.CharField(max_length=64, blank=True)
     subcategory = models.CharField(max_length=128, blank=True)
     hint = models.TextField(blank=True)
     difficulty = models.CharField(max_length=16, blank=True, choices=Difficulty.choices)
@@ -233,6 +259,7 @@ class StagedWord(TimestampedModel):
         self.sanitized_text = sanitize_text(self.text)
         self.normalized_text = normalized_key(self.text)
         self.category_name = sanitize_text(self.category_name)
+        self.collection_name = sanitize_text(self.collection_name)
         self.subcategory = sanitize_text(self.subcategory)
         self.hint = sanitize_text(self.hint)
         super().save(*args, **kwargs)

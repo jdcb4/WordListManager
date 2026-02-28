@@ -51,6 +51,15 @@ def validate_wordlist() -> dict:
                     message="Guessing words must have a category.",
                 )
             )
+        if word.collection is None:
+            issues.append(
+                _issue(
+                    severity="warning",
+                    code="missing_collection",
+                    word_id=word.id,
+                    message="Word has no collection and should be assigned (for example Base).",
+                )
+            )
         if word.category and not word.category.is_active:
             issues.append(
                 _issue(

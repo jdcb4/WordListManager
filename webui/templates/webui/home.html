@@ -40,6 +40,15 @@
       </select>
     </label>
     <label>
+      Collection
+      <select name="collection">
+        <option value="">All</option>
+        {% for collection in collections %}
+          <option value="{{ collection.name }}" {% if collection_name == collection.name %}selected{% endif %}>{{ collection.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
       Difficulty
       <select name="difficulty">
         <option value="">All</option>
@@ -61,6 +70,7 @@
         <th>Word</th>
         <th>Type</th>
         <th>Category</th>
+        <th>Collection</th>
         <th>Subcategory</th>
         <th>Hint</th>
         <th>Difficulty</th>
@@ -72,13 +82,14 @@
         <td>{{ word.sanitized_text }}</td>
         <td>{{ word.word_type }}</td>
         <td>{% if word.category %}{{ word.category.name }}{% endif %}</td>
+        <td>{% if word.collection %}{{ word.collection.name }}{% endif %}</td>
         <td>{{ word.subcategory }}</td>
         <td>{{ word.hint }}</td>
         <td>{{ word.difficulty }}</td>
       </tr>
       {% empty %}
       <tr>
-        <td colspan="6">No words matched current filters.</td>
+        <td colspan="7">No words matched current filters.</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from words.models import (
     Category,
+    Collection,
     Difficulty,
     ImportBatch,
     ImportBatchStatus,
@@ -74,6 +75,7 @@ def _create_staged_rows(*, batch: ImportBatch, rows: list[dict]) -> int:
                 normalized_text=normalized_key(sanitized_word),
                 word_type=_parse_word_type(_pick(row, "word_type", "WordType", "type", "Type")),
                 category_name=sanitize_text(_pick(row, "category", "Category")),
+                collection_name=sanitize_text(_pick(row, "collection", "Collection")) or "Base",
                 subcategory=sanitize_text(_pick(row, "subcategory", "Subcategory")),
                 hint=sanitize_text(_pick(row, "hint", "Hint")),
                 difficulty=difficulty,
@@ -130,6 +132,12 @@ def create_batch_from_upload(*, file_name: str, file_bytes: bytes, created_by=No
     )
 
 
+def create_batch_from_rows(*, rows: list[dict], source_name: str, created_by=None, note: str = "") -> ImportBatch:
+    batch = _create_batch(file_name=source_name, created_by=created_by, note=note)
+    rows_created = _create_staged_rows(batch=batch, rows=rows)
+    return _finalize_batch(batch=batch, rows_created=rows_created)
+
+
 @transaction.atomic
 def review_staged_word(*, staged_word: StagedWord, reviewer, approve: bool, note: str = "") -> StagedWord:
     if staged_word.status != StagedWordStatus.PENDING:
@@ -139,11 +147,14 @@ def review_staged_word(*, staged_word: StagedWord, reviewer, approve: bool, note
         category = None
         if staged_word.word_type == WordType.GUESSING and staged_word.category_name:
             category, _ = Category.objects.get_or_create(name=staged_word.category_name)
+        collection_name = staged_word.collection_name or "Base"
+        collection, _ = Collection.objects.get_or_create(name=collection_name, defaults={"is_active": True})
         cleaned_text = staged_word.sanitized_text or sanitize_text(staged_word.text)
         cleaned_normalized = staged_word.normalized_text or normalized_key(cleaned_text)
         defaults = {
             "text": cleaned_text,
             "category": category,
+            "collection": collection,
             "subcategory": staged_word.subcategory,
             "hint": staged_word.hint,
             "difficulty": staged_word.difficulty,

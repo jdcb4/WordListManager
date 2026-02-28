@@ -7,10 +7,12 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
 - Core word management models:
   - `WordEntry` (guessing/describing words)
   - `Category` (configurable admin categories)
+  - `Collection` (e.g. Base, Christmas, Kids)
   - `DatasetVersion` (version/checksum for sync checks)
   - `ExportArtifact` (CSV/JSON export metadata)
 - Text sanitization and dedupe key generation.
 - Default categories are seeded as `Who`, `What`, `Where`.
+- Existing words are assigned to `Base` collection.
 - Guessing words require a category (enforced at DB level).
 - Import from `source_data/words.csv` and `source_data/wordBank.json`.
 - Publish pipeline command (dedupe + validation + versioned CSV/JSON exports + report).
@@ -27,10 +29,15 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - `GET /manage/` authenticated management dashboard
   - Staff one-click publish action from dashboard
   - Dashboard actions for import, dedupe, validate, deploy config check
+  - Dashboard AI actions:
+    - Complete missing hint/difficulty fields
+    - Generate words into staging
   - `GET /feedback/` mobile-friendly feedback capture
+  - `GET /feedback/swipe/` Tinder-like swipe feedback capture
   - `GET /manage/feedback/` feedback review queue
   - `GET /manage/staging/` upload and review staged words
   - Staging upload accepts CSV and JSON
+  - `GET /manage/validation/` validation issue review and actioning
   - Bulk moderation actions for feedback and staging queues
 - Rate limiting configured in DRF (`anon`, `user`, `exports` scopes).
 
@@ -43,6 +50,7 @@ python manage.py import_source_data
 python manage.py publish_wordlist
 python manage.py createsuperuser
 python manage.py check_deploy_config
+python manage.py validate_wordlist
 python manage.py runserver
 ```
 
@@ -81,7 +89,7 @@ python manage.py validate_wordlist --fail-on-warnings
 CSV and JSON uploads are supported in `/manage/staging/`.
 
 - CSV fields:
-  - `word`, `word_type`, `category`, `subcategory`, `hint`, `difficulty`
+  - `word`, `word_type`, `category`, `collection`, `subcategory`, `hint`, `difficulty`
 - JSON shape:
   - List of objects or `{"words":[...]}`
   - Same fields as CSV keys
@@ -104,6 +112,26 @@ python examples/client_sync.py --manifest-url https://wordlistmanager-production
 ```
 
 If checksum is unchanged, it exits without downloading. If changed, it downloads the latest export and updates local state.
+
+## AI features
+
+Management interface AI actions use OpenRouter with:
+
+- API key env var: `OPEN_ROUTER_API_KEY`
+- Default model: `google/gemini-2.5-flash-lite` (override with `OPENROUTER_MODEL`)
+
+Functions:
+
+1. Complete missing word template fields (`hint` / `difficulty`) in batches of up to 50.
+2. Generate new words from prompt inputs (type/category/subcategory/difficulty/collection), sent to staging for normal review flow.
+
+## UI modernization plan
+
+See [ui-modernization-plan.md](docs/ui-modernization-plan.md) for a non-implementation plan covering:
+
+- Django template modernization path
+- Hybrid React migration path
+- Full React SPA path
 
 ## Deployment (Railway)
 

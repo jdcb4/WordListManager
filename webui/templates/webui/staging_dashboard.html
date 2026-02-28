@@ -16,7 +16,7 @@
     </label>
     <button type="submit">Upload To Staging</button>
   </form>
-  <p class="muted">Expected fields: word, word_type, category, subcategory, hint, difficulty.</p>
+  <p class="muted">Expected fields: word, word_type, category, collection, subcategory, hint, difficulty.</p>
   <p class="muted">Use sample files from `sample_uploads/` for quick testing.</p>
 </section>
 
@@ -49,6 +49,7 @@
         <th>Word</th>
         <th>Type</th>
         <th>Category</th>
+        <th>Collection</th>
         <th>Hint</th>
         <th>Batch</th>
         <th>Action</th>
@@ -61,6 +62,7 @@
         <td>{{ item.sanitized_text }}</td>
         <td>{{ item.word_type }}</td>
         <td>{{ item.category_name }}</td>
+        <td>{{ item.collection_name }}</td>
         <td>{{ item.hint }}</td>
         <td>{{ item.batch_id }}</td>
         <td>
@@ -74,7 +76,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="7">No pending staged words.</td></tr>
+      <tr><td colspan="8">No pending staged words.</td></tr>
       {% endfor %}
     </tbody>
   </table>

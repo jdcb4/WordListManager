@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Validation Issues{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Validation Issues</h1>
+  <p class="muted">
+    Checked: <strong>{{ report.checked_words }}</strong>
+    | Errors: <strong>{{ report.error_count }}</strong>
+    | Warnings: <strong>{{ report.warning_count }}</strong>
+  </p>
+  <p><a href="/manage/">Back to dashboard</a></p>
+</section>
+
+<section class="panel">
+  <form method="post" action="/manage/validation/apply/" id="validation-action-form" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 12px;">
+    {% csrf_token %}
+    <select name="action" required>
+      <option value="deactivate">Deactivate Selected Words</option>
+      <option value="ai_complete">AI Complete Selected Words</option>
+    </select>
+    <input type="text" name="model" value="{{ default_model }}" placeholder="AI model (for AI action)">
+    <button type="submit">Apply Action</button>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Select</th>
+        <th>Severity</th>
+        <th>Code</th>
+        <th>Word</th>
+        <th>Collection</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in issues %}
+      <tr>
+        <td>
+          {% if row.word %}
+          <input type="checkbox" name="word_ids" value="{{ row.word.id }}" form="validation-action-form">
+          {% endif %}
+        </td>
+        <td>{{ row.issue.severity }}</td>
+        <td>{{ row.issue.code }}</td>
+        <td>
+          {% if row.word %}
+            {{ row.word.sanitized_text }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>
+          {% if row.word and row.word.collection %}
+            {{ row.word.collection.name }}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{{ row.issue.message }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6">No issues found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

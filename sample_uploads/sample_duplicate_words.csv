@@ -1,5 +1,5 @@
-﻿word,word_type,category,subcategory,hint,difficulty
-Albert Einstein,guessing,Who,Scientist,Developed relativity,hard
-Albert Einstein,guessing,Who,Scientist,Developed relativity,hard
-Umbrella,describing,,,,easy
-Umbrella,describing,,,,easy
+﻿word,word_type,category,collection,subcategory,hint,difficulty
+Albert Einstein,guessing,Who,Base,Scientist,Developed relativity,hard
+Albert Einstein,guessing,Who,Base,Scientist,Developed relativity,hard
+Umbrella,describing,What,Kids,,,easy
+Umbrella,describing,What,Kids,,,easy

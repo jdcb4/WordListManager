@@ -1,5 +1,5 @@
-﻿word,word_type,category,subcategory,hint,difficulty
-,guessing,Who,Actor,Name missing,medium
-Solo,guessing,,,No category present for guessing,medium
-Tree,describing,,,,
-,describing,,,,
+﻿word,word_type,category,collection,subcategory,hint,difficulty
+,guessing,Who,Base,Actor,Name missing,medium
+Solo,guessing,,Base,,No category present for guessing,medium
+Tree,describing,What,,, ,
+,describing,What,Base,,,

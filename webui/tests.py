@@ -76,3 +76,22 @@ class ManagementBulkActionTests(TestCase):
         self.assertEqual(response_validate.status_code, 302)
         self.assertEqual(response_dedupe.status_code, 302)
         self.assertEqual(response_check.status_code, 302)
+
+    def test_manage_validation_action_deactivate(self):
+        word = WordEntry.objects.create(text="Needle", word_type=WordType.DESCRIBING)
+        response = self.client.post(
+            "/manage/validation/apply/",
+            data={"action": "deactivate", "word_ids": [word.id]},
+        )
+        self.assertEqual(response.status_code, 302)
+        word.refresh_from_db()
+        self.assertFalse(word.is_active)
+
+    def test_feedback_swipe_page_renders(self):
+        response = self.client.get("/feedback/swipe/")
+        self.assertEqual(response.status_code, 200)
+
+    def test_manage_validation_page_renders(self):
+        WordEntry.objects.create(text="Twig", word_type=WordType.DESCRIBING)
+        response = self.client.get("/manage/validation/")
+        self.assertEqual(response.status_code, 200)

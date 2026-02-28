@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Swipe Feedback{% endblock %}
+{% block content %}
+<section class="panel" style="max-width: 540px; margin: 0 auto; text-align:center;">
+  <h1>Swipe Feedback</h1>
+  <p class="muted">Swipe right for good, left for bad.</p>
+  <p><a href="/feedback/">Switch to classic feedback</a></p>
+
+  <div id="swipe-area" style="position:relative; height:340px; margin: 16px 0;">
+    <div id="card" style="position:absolute; inset:0; background:#fff; border:1px solid var(--border); border-radius:14px; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:16px; transition: transform 0.2s ease, opacity 0.2s ease;">
+      <div class="muted" id="meta">Loading...</div>
+      <div id="word" style="font-size:40px; font-weight:700; margin-top:10px;">...</div>
+      <div class="muted" id="hint" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:center;">
+    <button id="bad-btn" type="button" style="background:#a3342b;">Bad</button>
+    <button id="good-btn" type="button">Good</button>
+  </div>
+  <p id="status" class="muted" style="margin-top:12px;">Ready</p>
+</section>
+
+<script>
+(() => {
+  const randomUrl = "{{ api_random_url }}";
+  const feedbackUrl = "{{ api_feedback_url }}";
+  const card = document.getElementById("card");
+  const wordEl = document.getElementById("word");
+  const metaEl = document.getElementById("meta");
+  const hintEl = document.getElementById("hint");
+  const statusEl = document.getElementById("status");
+  const goodBtn = document.getElementById("good-btn");
+  const badBtn = document.getElementById("bad-btn");
+
+  let currentWord = null;
+  let dragStartX = null;
+  let dragDeltaX = 0;
+
+  async function loadWord() {
+    statusEl.textContent = "Loading next word...";
+    try {
+      const res = await fetch(randomUrl, { credentials: "same-origin" });
+      const data = await res.json();
+      currentWord = (data.results || [])[0] || null;
+      if (!currentWord) {
+        wordEl.textContent = "No words";
+        metaEl.textContent = "";
+        hintEl.textContent = "";
+        statusEl.textContent = "No active words found.";
+        return;
+      }
+      wordEl.textContent = currentWord.word;
+      metaEl.textContent = [currentWord.word_type, currentWord.category, currentWord.collection].filter(Boolean).join(" | ");
+      hintEl.textContent = currentWord.hint || "";
+      statusEl.textContent = "Swipe or tap buttons.";
+      resetCard();
+    } catch (err) {
+      statusEl.textContent = "Could not load word.";
+    }
+  }
+
+  function resetCard() {
+    dragStartX = null;
+    dragDeltaX = 0;
+    card.style.transform = "translateX(0px) rotate(0deg)";
+    card.style.opacity = "1";
+  }
+
+  async function submit(verdict) {
+    if (!currentWord) {
+      return;
+    }
+    statusEl.textContent = "Saving feedback...";
+    try {
+      await fetch(feedbackUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ word: currentWord.id, verdict: verdict, comment: "" }),
+      });
+      statusEl.textContent = verdict === "good" ? "Marked good." : "Marked bad.";
+    } catch (err) {
+      statusEl.textContent = "Feedback failed to save.";
+    }
+    await loadWord();
+  }
+
+  function pointerDown(evt) {
+    dragStartX = evt.clientX;
+    card.setPointerCapture(evt.pointerId);
+  }
+
+  function pointerMove(evt) {
+    if (dragStartX === null) return;
+    dragDeltaX = evt.clientX - dragStartX;
+    card.style.transform = `translateX(${dragDeltaX}px) rotate(${dragDeltaX / 15}deg)`;
+    const alpha = Math.max(0.4, 1 - Math.abs(dragDeltaX) / 320);
+    card.style.opacity = alpha.toString();
+  }
+
+  function pointerUp() {
+    if (dragStartX === null) return;
+    const threshold = 110;
+    if (dragDeltaX > threshold) {
+      card.style.transform = "translateX(520px) rotate(20deg)";
+      card.style.opacity = "0";
+      submit("good");
+    } else if (dragDeltaX < -threshold) {
+      card.style.transform = "translateX(-520px) rotate(-20deg)";
+      card.style.opacity = "0";
+      submit("bad");
+    } else {
+      resetCard();
+    }
+  }
+
+  card.addEventListener("pointerdown", pointerDown);
+  card.addEventListener("pointermove", pointerMove);
+  card.addEventListener("pointerup", pointerUp);
+  card.addEventListener("pointercancel", pointerUp);
+  goodBtn.addEventListener("click", () => submit("good"));
+  badBtn.addEventListener("click", () => submit("bad"));
+
+  loadWord();
+})();
+</script>
+{% endblock %}

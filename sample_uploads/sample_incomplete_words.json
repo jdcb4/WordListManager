@@ -1,6 +1,6 @@
 ﻿[
-  {"word": "", "word_type": "guessing", "category": "Who", "hint": "Missing word text", "difficulty": "medium"},
-  {"word": "Lonely Guess", "word_type": "guessing", "hint": "Missing category for guessing", "difficulty": "medium"},
-  {"word": "Painter", "word_type": "describing"},
-  {"word_type": "describing", "difficulty": "easy"}
+  {"word": "", "word_type": "guessing", "category": "Who", "collection": "Base", "hint": "Missing word text", "difficulty": "medium"},
+  {"word": "Lonely Guess", "word_type": "guessing", "collection": "Base", "hint": "Missing category for guessing", "difficulty": "medium"},
+  {"word": "Painter", "word_type": "describing", "category": "What", "collection": "Kids"},
+  {"word_type": "describing", "collection": "Base", "difficulty": "easy"}
 ]

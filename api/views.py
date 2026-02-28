@@ -29,7 +29,7 @@ class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             WordEntry.objects.filter(is_active=True)
-            .select_related("category")
+            .select_related("category", "collection")
             .order_by("sanitized_text", "id")
         )
 
@@ -42,7 +42,11 @@ def random_words(request):
     except ValueError:
         count = 1
     count = max(1, min(count, 100))
-    queryset = WordEntry.objects.filter(is_active=True).select_related("category").order_by("?")[:count]
+    queryset = (
+        WordEntry.objects.filter(is_active=True)
+        .select_related("category", "collection")
+        .order_by("?")[:count]
+    )
     serializer = WordEntrySerializer(queryset, many=True)
     return Response({"count": count, "results": serializer.data})
 
@@ -63,6 +67,12 @@ def word_stats(request):
         .annotate(total=Count("id"))
         .order_by("-total", "category__name")
     )
+    by_collection = list(
+        active_words.exclude(collection=None)
+        .values("collection__name")
+        .annotate(total=Count("id"))
+        .order_by("-total", "collection__name")
+    )
     latest = DatasetVersion.latest()
     return Response(
         {
@@ -70,6 +80,7 @@ def word_stats(request):
             "by_type": by_type,
             "by_difficulty": by_difficulty,
             "categories": by_category,
+            "collections": by_collection,
             "dataset_version": latest.version_number if latest else None,
         }
     )

@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from words.models import Category, Difficulty, WordEntry, WordType
+from words.models import Category, Collection, Difficulty, WordEntry, WordType
 from words.services.normalization import sanitize_text
 
 CSV_FILENAME = "words.csv"
@@ -65,11 +65,12 @@ class Command(BaseCommand):
             return
 
         with transaction.atomic():
+            base_collection = Collection.get_base()
             if options["replace"]:
                 WordEntry.objects.all().delete()
 
-            csv_stats = self._upsert_csv_rows(csv_rows, source=csv_path.name)
-            json_stats = self._upsert_json_rows(json_rows, source=json_path.name)
+            csv_stats = self._upsert_csv_rows(csv_rows, source=csv_path.name, collection=base_collection)
+            json_stats = self._upsert_json_rows(json_rows, source=json_path.name, collection=base_collection)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -91,7 +92,7 @@ class Command(BaseCommand):
             raise CommandError(f"JSON root must be a list in {path}")
         return parsed
 
-    def _upsert_csv_rows(self, rows: list[dict], source: str) -> dict:
+    def _upsert_csv_rows(self, rows: list[dict], source: str, collection: Collection) -> dict:
         stats = {"created": 0, "updated": 0, "skipped": 0}
         for row in rows:
             raw_word = sanitize_text(row.get("Word", ""))
@@ -107,6 +108,7 @@ class Command(BaseCommand):
             defaults = {
                 "text": raw_word,
                 "category": category,
+                "collection": collection,
                 "hint": sanitize_text(row.get("Hint", "")),
                 "source": source,
                 "is_active": True,
@@ -122,7 +124,7 @@ class Command(BaseCommand):
                 stats["updated"] += 1
         return stats
 
-    def _upsert_json_rows(self, rows: list[dict], source: str) -> dict:
+    def _upsert_json_rows(self, rows: list[dict], source: str, collection: Collection) -> dict:
         stats = {"created": 0, "updated": 0, "skipped": 0}
         for row in rows:
             raw_word = sanitize_text(str(row.get("word", "")).strip())
@@ -135,6 +137,7 @@ class Command(BaseCommand):
 
             defaults = {
                 "text": raw_word,
+                "collection": collection,
                 "difficulty": difficulty,
                 "source": source,
                 "is_active": True,

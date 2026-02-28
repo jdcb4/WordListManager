@@ -8,6 +8,7 @@ from words.models import DatasetVersion, ExportArtifact, WordEntry, WordFeedback
 class WordEntrySerializer(serializers.ModelSerializer):
     word = serializers.CharField(source="sanitized_text")
     category = serializers.CharField(source="category.name", default=None)
+    collection = serializers.CharField(source="collection.name", default=None)
 
     class Meta:
         model = WordEntry
@@ -16,6 +17,7 @@ class WordEntrySerializer(serializers.ModelSerializer):
             "word",
             "word_type",
             "category",
+            "collection",
             "subcategory",
             "hint",
             "difficulty",

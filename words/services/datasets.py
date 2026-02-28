@@ -19,6 +19,7 @@ def _word_to_dict(word: WordEntry) -> dict:
         "word": word.sanitized_text,
         "wordType": word.word_type,
         "category": word.category.name if word.category else None,
+        "collection": word.collection.name if word.collection else None,
         "subcategory": word.subcategory or None,
         "hint": word.hint or None,
         "difficulty": word.difficulty or None,
@@ -30,7 +31,7 @@ def _word_to_dict(word: WordEntry) -> dict:
 def build_dataset_payload() -> list[dict]:
     queryset = (
         WordEntry.objects.filter(is_active=True)
-        .select_related("category")
+        .select_related("category", "collection")
         .order_by("normalized_text", "id")
     )
     return [_word_to_dict(word) for word in queryset]
@@ -61,6 +62,7 @@ def _write_csv(path: Path, payload: list[dict]) -> None:
         "word",
         "wordType",
         "category",
+        "collection",
         "subcategory",
         "hint",
         "difficulty",

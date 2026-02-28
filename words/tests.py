@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from words.models import StagedWordStatus, WordEntry, WordType
+from words.models import Collection, StagedWordStatus, WordEntry, WordType
 from words.services.datasets import publish_dataset
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
@@ -45,6 +45,14 @@ class QualityTests(TestCase):
         WordEntry.objects.create(text=("A" * 121), word_type=WordType.DESCRIBING)
         report = validate_wordlist()
         self.assertGreaterEqual(report["error_count"], 1)
+
+
+class CollectionTests(TestCase):
+    def test_word_defaults_to_base_collection(self):
+        word = WordEntry.objects.create(text="Helicopter", word_type=WordType.DESCRIBING)
+        self.assertIsNotNone(word.collection)
+        self.assertEqual(word.collection.name, "Base")
+        self.assertTrue(Collection.objects.filter(name="Base").exists())
 
 
 class StagingTests(TestCase):

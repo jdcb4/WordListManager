@@ -1,5 +1,5 @@
 ﻿[
-  {"word": "Nikola Tesla", "word_type": "guessing", "category": "Who", "subcategory": "Inventor", "hint": "AC electricity pioneer", "difficulty": "hard"},
-  {"word": "Sydney Opera House", "word_type": "guessing", "category": "Where", "subcategory": "Landmark", "hint": "Famous building in Australia", "difficulty": "medium"},
-  {"word": "Bicycle", "word_type": "describing", "difficulty": "easy"}
+  {"word": "Nikola Tesla", "word_type": "guessing", "category": "Who", "collection": "Base", "subcategory": "Inventor", "hint": "AC electricity pioneer", "difficulty": "hard"},
+  {"word": "Sydney Opera House", "word_type": "guessing", "category": "Where", "collection": "Base", "subcategory": "Landmark", "hint": "Famous building in Australia", "difficulty": "medium"},
+  {"word": "Bicycle", "word_type": "describing", "category": "What", "collection": "Kids", "difficulty": "easy"}
 ]

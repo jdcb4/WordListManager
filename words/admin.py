@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from words.models import (
+    Collection,
     Category,
     DatasetVersion,
     ExportArtifact,
@@ -9,6 +10,13 @@ from words.models import (
     WordEntry,
     WordFeedback,
 )
+
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ("name", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
 
 
 @admin.register(Category)
@@ -24,14 +32,15 @@ class WordEntryAdmin(admin.ModelAdmin):
         "sanitized_text",
         "word_type",
         "category",
+        "collection",
         "difficulty",
         "is_active",
         "source",
         "updated_at",
     )
-    list_filter = ("word_type", "difficulty", "category", "is_active")
+    list_filter = ("word_type", "difficulty", "category", "collection", "is_active")
     search_fields = ("sanitized_text", "normalized_text", "hint", "subcategory")
-    autocomplete_fields = ("category",)
+    autocomplete_fields = ("category", "collection")
 
 
 @admin.register(DatasetVersion)
@@ -72,7 +81,15 @@ class ImportBatchAdmin(admin.ModelAdmin):
 
 @admin.register(StagedWord)
 class StagedWordAdmin(admin.ModelAdmin):
-    list_display = ("sanitized_text", "word_type", "category_name", "status", "batch", "created_at")
+    list_display = (
+        "sanitized_text",
+        "word_type",
+        "category_name",
+        "collection_name",
+        "status",
+        "batch",
+        "created_at",
+    )
     list_filter = ("status", "word_type", "difficulty")
     search_fields = ("sanitized_text", "normalized_text", "category_name", "hint", "review_note")
     autocomplete_fields = ("batch", "reviewed_by", "resulting_word")

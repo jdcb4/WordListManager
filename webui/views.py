@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 
 from words.models import (
     Category,
+    Collection,
     DatasetVersion,
     FeedbackResolution,
     FeedbackVerdict,
@@ -23,6 +24,7 @@ from words.models import (
     WordEntry,
     WordFeedback,
 )
+from words.services.ai import AIServiceError, DEFAULT_MODEL, complete_word_templates, generate_words
 from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
@@ -30,10 +32,11 @@ from words.services.staging import create_batch_from_upload, review_staged_word
 
 
 def home(request):
-    queryset = WordEntry.objects.filter(is_active=True).select_related("category")
+    queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
 
     word_type = request.GET.get("word_type", "").strip()
     category_name = request.GET.get("category", "").strip()
+    collection_name = request.GET.get("collection", "").strip()
     difficulty = request.GET.get("difficulty", "").strip()
     search = request.GET.get("q", "").strip()
 
@@ -41,6 +44,8 @@ def home(request):
         queryset = queryset.filter(word_type=word_type)
     if category_name:
         queryset = queryset.filter(category__name=category_name)
+    if collection_name:
+        queryset = queryset.filter(collection__name=collection_name)
     if difficulty:
         queryset = queryset.filter(difficulty=difficulty)
     if search:
@@ -52,9 +57,11 @@ def home(request):
         "words": words,
         "word_type": word_type,
         "category_name": category_name,
+        "collection_name": collection_name,
         "difficulty": difficulty,
         "search": search,
         "categories": Category.objects.filter(is_active=True).order_by("name"),
+        "collections": Collection.objects.filter(is_active=True).order_by("name"),
         "latest_version": DatasetVersion.latest(),
         "total_active": WordEntry.objects.filter(is_active=True).count(),
     }
@@ -65,6 +72,9 @@ def home(request):
 def manage_dashboard(request):
     active_words = WordEntry.objects.filter(is_active=True)
     by_type = list(active_words.values("word_type").annotate(total=Count("id")).order_by("word_type"))
+    by_collection = list(
+        active_words.values("collection__name").annotate(total=Count("id")).order_by("collection__name")
+    )
     by_difficulty = list(
         active_words.exclude(difficulty="")
         .values("difficulty")
@@ -75,7 +85,10 @@ def manage_dashboard(request):
         "latest_version": DatasetVersion.latest(),
         "total_active": active_words.count(),
         "by_type": by_type,
+        "by_collection": by_collection,
         "by_difficulty": by_difficulty,
+        "collections": Collection.objects.filter(is_active=True).order_by("name"),
+        "default_ai_model": DEFAULT_MODEL,
     }
     return render(request, "webui/manage.html", context)
 
@@ -146,17 +159,9 @@ def run_manage_dedupe(request: HttpRequest) -> HttpResponse:
 def run_manage_validate(request: HttpRequest) -> HttpResponse:
     report = validate_wordlist()
     if report["error_count"] > 0:
-        messages.error(
-            request,
-            f"Validation failed. Errors: {report['error_count']}, warnings: {report['warning_count']}.",
-        )
-    else:
-        messages.success(
-            request,
-            f"Validation passed. Checked {report['checked_words']} words, "
-            f"warnings: {report['warning_count']}.",
-        )
-    return redirect("manage-dashboard")
+        messages.error(request, f"Validation found {report['error_count']} errors.")
+    messages.info(request, f"Validation warnings: {report['warning_count']}.")
+    return redirect("manage-validation")
 
 
 @require_POST
@@ -171,6 +176,120 @@ def run_manage_check_deploy(request: HttpRequest) -> HttpResponse:
     return redirect("manage-dashboard")
 
 
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def manage_validation(request: HttpRequest) -> HttpResponse:
+    report = validate_wordlist()
+    issues = report.get("issues", [])
+    word_ids = sorted({issue["word_id"] for issue in issues if issue.get("word_id")})
+    words = WordEntry.objects.filter(id__in=word_ids).select_related("category", "collection")
+    words_map = {word.id: word for word in words}
+    enriched_issues = []
+    for issue in issues:
+        word = words_map.get(issue.get("word_id"))
+        enriched_issues.append({"issue": issue, "word": word})
+    context = {"report": report, "issues": enriched_issues, "default_model": DEFAULT_MODEL}
+    return render(request, "webui/manage_validation.html", context)
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def apply_validation_action(request: HttpRequest) -> HttpResponse:
+    action = request.POST.get("action", "").strip()
+    raw_ids = request.POST.getlist("word_ids")
+    word_ids = sorted({int(item) for item in raw_ids if item.isdigit()})
+    if not word_ids:
+        messages.error(request, "Select at least one item.")
+        return redirect("manage-validation")
+
+    if action == "deactivate":
+        updated = WordEntry.objects.filter(id__in=word_ids, is_active=True).update(is_active=False)
+        messages.success(request, f"Deactivated {updated} word(s).")
+        return redirect("manage-validation")
+
+    if action == "ai_complete":
+        model = request.POST.get("model", "").strip() or DEFAULT_MODEL
+        try:
+            report = complete_word_templates(word_ids=word_ids, model=model)
+        except AIServiceError as exc:
+            messages.error(request, f"AI completion failed: {exc}")
+            return redirect("manage-validation")
+        messages.success(
+            request,
+            f"AI completion processed {report['processed']} word(s), updated {report['updated']}.",
+        )
+        return redirect("manage-validation")
+
+    messages.error(request, "Unknown action.")
+    return redirect("manage-validation")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_ai_complete_templates(request: HttpRequest) -> HttpResponse:
+    model = request.POST.get("model", "").strip() or DEFAULT_MODEL
+    try:
+        limit = int(request.POST.get("limit", "200"))
+    except ValueError:
+        limit = 200
+    limit = max(1, min(limit, 2000))
+
+    try:
+        report = complete_word_templates(model=model, limit=limit)
+    except AIServiceError as exc:
+        messages.error(request, f"AI completion failed: {exc}")
+        return redirect("manage-dashboard")
+
+    messages.success(
+        request,
+        f"AI completion processed {report['processed']} words in {report['batches']} batches, "
+        f"updated {report['updated']}.",
+    )
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_ai_generate_words(request: HttpRequest) -> HttpResponse:
+    word_type = request.POST.get("word_type", "").strip().lower()
+    if word_type not in {"guessing", "describing"}:
+        messages.error(request, "word_type must be 'guessing' or 'describing'.")
+        return redirect("manage-dashboard")
+
+    category = request.POST.get("category", "").strip()
+    subcategory = request.POST.get("subcategory", "").strip()
+    difficulty = request.POST.get("difficulty", "").strip().lower()
+    collection = request.POST.get("collection", "").strip() or "Base"
+    model = request.POST.get("model", "").strip() or DEFAULT_MODEL
+    try:
+        count = int(request.POST.get("count", "20"))
+    except ValueError:
+        count = 20
+
+    try:
+        report = generate_words(
+            word_type=word_type,
+            category=category,
+            subcategory=subcategory,
+            difficulty=difficulty,
+            collection=collection,
+            count=count,
+            model=model,
+            created_by=request.user,
+        )
+    except AIServiceError as exc:
+        messages.error(request, f"AI generation failed: {exc}")
+        return redirect("manage-dashboard")
+    messages.success(
+        request,
+        f"AI generated {report['generated']} item(s), staged in batch {report['batch_id']}.",
+    )
+    return redirect("staging-dashboard")
+
+
 def feedback_home(request: HttpRequest) -> HttpResponse:
     word = WordEntry.objects.filter(is_active=True).order_by("?").first()
     recent = (
@@ -183,6 +302,14 @@ def feedback_home(request: HttpRequest) -> HttpResponse:
         "recent_feedback": recent,
     }
     return render(request, "webui/feedback.html", context)
+
+
+def feedback_swipe(request: HttpRequest) -> HttpResponse:
+    return render(
+        request,
+        "webui/feedback_swipe.html",
+        {"api_random_url": "/api/v1/words/random?count=1", "api_feedback_url": "/api/v1/feedback"},
+    )
 
 
 @require_POST

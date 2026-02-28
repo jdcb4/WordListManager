@@ -38,9 +38,43 @@
   <p class="muted">
     One-Click Publish runs dedupe + validation + publish/export in a single action.
   </p>
+  <div class="panel" style="margin-top: 12px;">
+    <h2>AI Tools</h2>
+    <form method="post" action="/manage/actions/ai-complete/" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px;">
+      {% csrf_token %}
+      <input type="number" name="limit" min="1" max="2000" value="200" placeholder="limit">
+      <input type="text" name="model" value="{{ default_ai_model }}" placeholder="model">
+      <button type="submit">AI Complete Missing Templates</button>
+    </form>
+    <form method="post" action="/manage/actions/ai-generate/" style="display:flex; gap:8px; flex-wrap:wrap;">
+      {% csrf_token %}
+      <select name="word_type" required>
+        <option value="guessing">guessing</option>
+        <option value="describing">describing</option>
+      </select>
+      <input type="number" name="count" min="1" max="50" value="20" placeholder="count">
+      <input type="text" name="category" placeholder="category (optional)">
+      <input type="text" name="subcategory" placeholder="subcategory (optional)">
+      <select name="difficulty">
+        <option value="">difficulty optional</option>
+        <option value="easy">easy</option>
+        <option value="medium">medium</option>
+        <option value="hard">hard</option>
+      </select>
+      <select name="collection">
+        {% for collection in collections %}
+        <option value="{{ collection.name }}" {% if collection.name == "Base" %}selected{% endif %}>{{ collection.name }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" name="model" value="{{ default_ai_model }}" placeholder="model">
+      <button type="submit">AI Generate Words To Staging</button>
+    </form>
+    <p class="muted">OpenRouter key is read from `OPEN_ROUTER_API_KEY`; requests are sent in batches of up to 50.</p>
+  </div>
   <p>
     <a href="/manage/feedback/">Review Feedback</a> |
-    <a href="/manage/staging/">Staging Uploads</a>
+    <a href="/manage/staging/">Staging Uploads</a> |
+    <a href="/manage/validation/">Validation Issues</a>
   </p>
   {% endif %}
   <p><a href="/admin/" target="_blank" rel="noopener">Open Django Admin</a></p>
@@ -67,6 +101,20 @@
     <tbody>
       {% for item in by_difficulty %}
       <tr><td>{{ item.difficulty }}</td><td>{{ item.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">No records.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>By Collection</h2>
+  <table>
+    <thead><tr><th>Collection</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in by_collection %}
+      <tr><td>{{ item.collection__name }}</td><td>{{ item.total }}</td></tr>
       {% empty %}
       <tr><td colspan="2">No records.</td></tr>
       {% endfor %}
