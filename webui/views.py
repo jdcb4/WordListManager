@@ -20,7 +20,7 @@ from words.models import (
     WordEntry,
     WordFeedback,
 )
-from words.services.datasets import publish_dataset
+from words.services.pipeline import run_publish_pipeline
 from words.services.staging import create_batch_from_csv, review_staged_word
 
 
@@ -79,11 +79,18 @@ def manage_dashboard(request):
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def publish_now(request):
-    version, created = publish_dataset(force=False)
-    if created:
-        messages.success(request, f"Published version v{version.version_number}.")
+    report = run_publish_pipeline(force=False, run_dedupe=True, run_validation=True)
+    if report.get("blocked_by_validation"):
+        messages.error(
+            request,
+            f"Publish blocked by validation. Errors: {report['validation']['error_count']}, "
+            f"warnings: {report['validation']['warning_count']}.",
+        )
+        return redirect("manage-dashboard")
+    if report["published"]:
+        messages.success(request, f"Published version v{report['dataset_version']}.")
     else:
-        messages.info(request, f"No data changes; current version is v{version.version_number}.")
+        messages.info(request, f"No data changes; current version is v{report['dataset_version']}.")
     return redirect("manage-dashboard")
 
 
@@ -130,11 +137,15 @@ def submit_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_feedback(request: HttpRequest) -> HttpResponse:
-    pending_bad = WordFeedback.objects.filter(
-        verdict=FeedbackVerdict.BAD,
-        is_processed=False,
-        word__is_active=True,
-    ).select_related("word")
+    pending_bad = (
+        WordFeedback.objects.filter(
+            verdict=FeedbackVerdict.BAD,
+            is_processed=False,
+            word__is_active=True,
+        )
+        .select_related("word")
+        .order_by("-created_at")
+    )
     totals = Counter(
         WordFeedback.objects.filter(is_processed=False).values_list("verdict", flat=True)
     )
@@ -166,6 +177,33 @@ def resolve_feedback(request: HttpRequest) -> HttpResponse:
         feedback.word.save(update_fields=["is_active", "updated_at"])
     feedback.mark_processed(by_user=request.user, resolution=resolution, note=note)
     messages.success(request, "Feedback processed.")
+    return redirect("manage-feedback")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def bulk_resolve_feedback(request: HttpRequest) -> HttpResponse:
+    resolution = request.POST.get("resolution", FeedbackResolution.KEEP)
+    note = request.POST.get("note", "")
+    raw_ids = request.POST.getlist("feedback_ids")
+    ids = [int(item) for item in raw_ids if item.isdigit()]
+    if not ids:
+        messages.error(request, "Select at least one feedback row.")
+        return redirect("manage-feedback")
+    if resolution not in {FeedbackResolution.KEEP, FeedbackResolution.DEACTIVATE, FeedbackResolution.IGNORE}:
+        messages.error(request, "Invalid resolution.")
+        return redirect("manage-feedback")
+
+    queryset = WordFeedback.objects.select_related("word").filter(id__in=ids, is_processed=False)
+    processed = 0
+    for feedback in queryset:
+        if resolution == FeedbackResolution.DEACTIVATE:
+            feedback.word.is_active = False
+            feedback.word.save(update_fields=["is_active", "updated_at"])
+        feedback.mark_processed(by_user=request.user, resolution=resolution, note=note)
+        processed += 1
+    messages.success(request, f"Processed {processed} feedback item(s).")
     return redirect("manage-feedback")
 
 
@@ -228,6 +266,35 @@ def review_staging_word(request: HttpRequest) -> HttpResponse:
         note=note,
     )
     messages.success(request, "Staged word reviewed.")
+    return redirect("staging-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def bulk_review_staging(request: HttpRequest) -> HttpResponse:
+    action = request.POST.get("action", "").strip().lower()
+    note = request.POST.get("note", "")
+    raw_ids = request.POST.getlist("staged_word_ids")
+    ids = [int(item) for item in raw_ids if item.isdigit()]
+    if not ids:
+        messages.error(request, "Select at least one staged row.")
+        return redirect("staging-dashboard")
+    if action not in {"approve", "reject"}:
+        messages.error(request, "Invalid staging action.")
+        return redirect("staging-dashboard")
+
+    queryset = StagedWord.objects.filter(id__in=ids, status=StagedWordStatus.PENDING)
+    processed = 0
+    for staged_word in queryset:
+        review_staged_word(
+            staged_word=staged_word,
+            reviewer=request.user,
+            approve=(action == "approve"),
+            note=note,
+        )
+        processed += 1
+    messages.success(request, f"Reviewed {processed} staged word(s).")
     return redirect("staging-dashboard")
 
 # Create your views here.

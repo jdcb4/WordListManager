@@ -13,7 +13,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
 - Default categories are seeded as `Who`, `What`, `Where`.
 - Guessing words require a category (enforced at DB level).
 - Import from `source_data/words.csv` and `source_data/wordBank.json`.
-- Publish command that generates versioned CSV/JSON exports and checksum.
+- Publish pipeline command (dedupe + validation + versioned CSV/JSON exports + report).
 - API:
   - `GET /api/v1/words/`
   - `GET /api/v1/words/random?count=...`
@@ -29,6 +29,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - `GET /feedback/` mobile-friendly feedback capture
   - `GET /manage/feedback/` feedback review queue
   - `GET /manage/staging/` upload and review staged words
+  - Bulk moderation actions for feedback and staging queues
 - Rate limiting configured in DRF (`anon`, `user`, `exports` scopes).
 
 ## Local setup
@@ -39,6 +40,7 @@ python manage.py migrate
 python manage.py import_source_data
 python manage.py publish_wordlist
 python manage.py createsuperuser
+python manage.py check_deploy_config
 python manage.py runserver
 ```
 
@@ -53,12 +55,34 @@ python manage.py import_source_data
 ```bash
 python manage.py publish_wordlist
 ```
+3.1 Publish options:
+```bash
+python manage.py publish_wordlist --skip-dedupe
+python manage.py publish_wordlist --skip-validation
+python manage.py publish_wordlist --allow-validation-errors
+python manage.py publish_wordlist --report-path ./exports/publish_report.json
+```
 4. (Optional) run dedupe maintenance:
 ```bash
 python manage.py dedupe_words --dry-run
 python manage.py dedupe_words
 ```
-5. Clients check `/api/v1/manifest` weekly and compare `version_number` or `checksum_sha256`.
+5. Run validation explicitly:
+```bash
+python manage.py validate_wordlist
+python manage.py validate_wordlist --fail-on-warnings
+```
+6. Clients check `/api/v1/manifest` weekly and compare `version_number` or `checksum_sha256`.
+
+## Client sync example
+
+Use [client_sync.py](examples/client_sync.py) as a weekly sync task in downstream apps:
+
+```bash
+python examples/client_sync.py --manifest-url https://wordlistmanager-production.up.railway.app/api/v1/manifest --format json
+```
+
+If checksum is unchanged, it exits without downloading. If changed, it downloads the latest export and updates local state.
 
 ## Deployment (Railway)
 
@@ -71,7 +95,7 @@ python manage.py dedupe_words
    - `DATABASE_URL` (usually injected automatically from Railway Postgres)
    - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` for your Railway domain
 5. Railway starts with:
-   - `python manage.py migrate && gunicorn wordlist_manager.wsgi --bind 0.0.0.0:$PORT`
+   - `./start.sh`
 6. Create a Django admin user from Railway shell:
    - `python manage.py createsuperuser`
 7. Import and publish initial dataset:
@@ -87,11 +111,15 @@ python manage.py dedupe_words
    - `CSRF_TRUSTED_ORIGINS=https://<your Railway app domain>`
    - `RAILWAY_STRICT_HOST_CHECK=false` (recommended on Railway so internal healthchecks do not get `400`)
 2. Validate health endpoint:
-   - `/api/v1/manifest` returns HTTP 200.
+   - `/healthz` returns HTTP 200.
 3. Validate admin access:
    - `/admin/` login works.
 4. Validate exports:
    - `/api/v1/exports/latest.csv` and `/api/v1/exports/latest.json` return files.
+5. After stable go-live, tighten host checks:
+   - Set `RAILWAY_STRICT_HOST_CHECK=true`
+   - Set explicit `ALLOWED_HOSTS=<domain1,domain2>`
+   - Keep explicit `CSRF_TRUSTED_ORIGINS=https://<domain1>,https://<domain2>`
 
 ## Notes
 

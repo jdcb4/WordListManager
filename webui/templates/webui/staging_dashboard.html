@@ -44,6 +44,7 @@
   <table>
     <thead>
       <tr>
+        <th>Select</th>
         <th>Word</th>
         <th>Type</th>
         <th>Category</th>
@@ -55,6 +56,7 @@
     <tbody>
       {% for item in pending_words %}
       <tr>
+        <td><input type="checkbox" name="staged_word_ids" value="{{ item.id }}" form="bulk-staging-form"></td>
         <td>{{ item.sanitized_text }}</td>
         <td>{{ item.word_type }}</td>
         <td>{{ item.category_name }}</td>
@@ -71,9 +73,18 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="6">No pending staged words.</td></tr>
+      <tr><td colspan="7">No pending staged words.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  <form id="bulk-staging-form" method="post" action="/manage/staging/bulk-review/" style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+    {% csrf_token %}
+    <select name="action">
+      <option value="approve">Approve</option>
+      <option value="reject">Reject</option>
+    </select>
+    <input type="text" name="note" placeholder="bulk review note">
+    <button type="submit">Review Selected Rows</button>
+  </form>
 </section>
 {% endblock %}

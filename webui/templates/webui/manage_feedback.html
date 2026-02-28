@@ -14,6 +14,7 @@
   <table>
     <thead>
       <tr>
+        <th>Select</th>
         <th>Word</th>
         <th>Comment</th>
         <th>Submitted</th>
@@ -23,6 +24,7 @@
     <tbody>
       {% for item in pending_bad %}
       <tr>
+        <td><input type="checkbox" name="feedback_ids" value="{{ item.id }}" form="bulk-feedback-form"></td>
         <td>{{ item.word.sanitized_text }}</td>
         <td>{{ item.comment }}</td>
         <td>{{ item.created_at }}</td>
@@ -41,9 +43,19 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td colspan="4">No pending bad feedback.</td></tr>
+      <tr><td colspan="5">No pending bad feedback.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+  <form id="bulk-feedback-form" method="post" action="/manage/feedback/bulk-resolve/" style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+    {% csrf_token %}
+    <select name="resolution">
+      <option value="keep">Keep</option>
+      <option value="deactivate">Deactivate</option>
+      <option value="ignore">Ignore</option>
+    </select>
+    <input type="text" name="note" placeholder="bulk review note">
+    <button type="submit">Process Selected Rows</button>
+  </form>
 </section>
 {% endblock %}
