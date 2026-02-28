@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Word List Manager{% endblock %}</title>
+  <style>
+    :root {
+      --bg: #f6f4ef;
+      --surface: #ffffff;
+      --ink: #1f2a30;
+      --muted: #647079;
+      --accent: #146c78;
+      --border: #d4d9dd;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(140deg, #f6f4ef 0%, #e9f0f4 60%, #edf4ea 100%);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    nav a {
+      color: var(--accent);
+      text-decoration: none;
+      margin-right: 12px;
+      font-weight: 600;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .muted { color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    input, select, button {
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+    }
+    button {
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      border: none;
+    }
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    .messages {
+      list-style: none;
+      padding: 0;
+    }
+    .messages li {
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background: #e9f4ec;
+      border: 1px solid #b8d8c0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <div>
+        <a href="/">Word List</a>
+        <a href="/api/v1/manifest">Manifest</a>
+      </div>
+      <div>
+        {% if user.is_authenticated %}
+          <a href="/manage/">Manage</a>
+          <a href="/accounts/logout/">Logout</a>
+        {% else %}
+          <a href="/accounts/login/">Login</a>
+        {% endif %}
+      </div>
+    </nav>
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

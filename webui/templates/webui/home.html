@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Word List{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Word List Manager</h1>
+  <p class="muted">
+    Active words: <strong>{{ total_active }}</strong>
+    {% if latest_version %}
+      | Current version: <strong>v{{ latest_version.version_number }}</strong>
+    {% endif %}
+  </p>
+  <p>
+    Exports:
+    <a href="/api/v1/exports/latest.csv">CSV</a> |
+    <a href="/api/v1/exports/latest.json">JSON</a>
+  </p>
+</section>
+
+<section class="panel">
+  <form method="get" class="filters">
+    <label>
+      Search
+      <input type="text" name="q" value="{{ search }}" placeholder="word contains...">
+    </label>
+    <label>
+      Type
+      <select name="word_type">
+        <option value="">All</option>
+        <option value="guessing" {% if word_type == "guessing" %}selected{% endif %}>Guessing</option>
+        <option value="describing" {% if word_type == "describing" %}selected{% endif %}>Describing</option>
+      </select>
+    </label>
+    <label>
+      Category
+      <select name="category">
+        <option value="">All</option>
+        {% for category in categories %}
+          <option value="{{ category.name }}" {% if category_name == category.name %}selected{% endif %}>{{ category.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      Difficulty
+      <select name="difficulty">
+        <option value="">All</option>
+        <option value="easy" {% if difficulty == "easy" %}selected{% endif %}>Easy</option>
+        <option value="medium" {% if difficulty == "medium" %}selected{% endif %}>Medium</option>
+        <option value="hard" {% if difficulty == "hard" %}selected{% endif %}>Hard</option>
+      </select>
+    </label>
+    <div>
+      <button type="submit">Apply Filters</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Word</th>
+        <th>Type</th>
+        <th>Category</th>
+        <th>Subcategory</th>
+        <th>Hint</th>
+        <th>Difficulty</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for word in words %}
+      <tr>
+        <td>{{ word.sanitized_text }}</td>
+        <td>{{ word.word_type }}</td>
+        <td>{% if word.category %}{{ word.category.name }}{% endif %}</td>
+        <td>{{ word.subcategory }}</td>
+        <td>{{ word.hint }}</td>
+        <td>{{ word.difficulty }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6">No words matched current filters.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

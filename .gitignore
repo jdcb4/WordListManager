@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Local env
+.env
+.venv/
+venv/
+
+# Django runtime
+db.sqlite3
+staticfiles/
+exports/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Manage Word List{% endblock %}
+{% block content %}
+<section class="panel">
+  <h1>Management Dashboard</h1>
+  <p class="muted">
+    Current version:
+    {% if latest_version %}
+      <strong>v{{ latest_version.version_number }}</strong> ({{ latest_version.active_word_count }} words)
+    {% else %}
+      <strong>Not published yet</strong>
+    {% endif %}
+  </p>
+  <p>Total active words: <strong>{{ total_active }}</strong></p>
+  {% if user.is_staff %}
+  <form method="post" action="/manage/publish/">
+    {% csrf_token %}
+    <button type="submit">Publish New Version (If Changed)</button>
+  </form>
+  {% endif %}
+  <p><a href="/admin/" target="_blank" rel="noopener">Open Django Admin</a></p>
+</section>
+
+<section class="panel">
+  <h2>By Type</h2>
+  <table>
+    <thead><tr><th>Type</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in by_type %}
+      <tr><td>{{ item.word_type }}</td><td>{{ item.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">No records.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel">
+  <h2>By Difficulty</h2>
+  <table>
+    <thead><tr><th>Difficulty</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for item in by_difficulty %}
+      <tr><td>{{ item.difficulty }}</td><td>{{ item.total }}</td></tr>
+      {% empty %}
+      <tr><td colspan="2">No records.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
