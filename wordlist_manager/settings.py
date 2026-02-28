@@ -20,7 +20,7 @@ DEBUG = os.getenv("DEBUG", "true").lower() == "true"
 
 
 def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
-    hosts: list[str] = []
+    hosts: list[str] = ["localhost", "127.0.0.1", "[::1]"]
     for part in raw_hosts.split(","):
         candidate = part.strip()
         if not candidate:
@@ -33,7 +33,11 @@ def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
                 hosts.append(parsed.hostname)
             continue
         hosts.append(candidate.split("/")[0])
-    return hosts or ["*"]
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    if railway_domain:
+        hosts.append(railway_domain)
+    deduped = [host for i, host in enumerate(hosts) if host and host not in hosts[:i]]
+    return deduped or ["*"]
 
 
 def _parse_csrf_trusted_origins(raw_origins: str) -> list[str]:
@@ -47,7 +51,10 @@ def _parse_csrf_trusted_origins(raw_origins: str) -> list[str]:
         parsed = urlparse(candidate)
         if parsed.scheme and parsed.netloc:
             origins.append(f"{parsed.scheme}://{parsed.netloc}")
-    return origins
+    railway_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    if railway_domain:
+        origins.append(f"https://{railway_domain}")
+    return [origin for i, origin in enumerate(origins) if origin and origin not in origins[:i]]
 
 
 ALLOWED_HOSTS = _parse_allowed_hosts(os.getenv("ALLOWED_HOSTS", "*"))
