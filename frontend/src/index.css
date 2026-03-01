@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: linear-gradient(140deg, #f6f4ef 0%, #e9f0f4 60%, #edf4ea 100%);
+  color: hsl(202 23% 16%);
+}

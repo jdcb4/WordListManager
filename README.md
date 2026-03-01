@@ -24,6 +24,14 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - `GET /api/v1/exports/latest.csv`
   - `GET /api/v1/exports/latest.json`
   - `POST /api/v1/feedback`
+  - Staff management APIs for React transition:
+    - `GET /api/v1/manage/dashboard`
+    - `POST /api/v1/manage/publish`
+    - `POST /api/v1/manage/dedupe`
+    - `GET /api/v1/manage/validate`
+    - `POST /api/v1/manage/validation/action`
+    - `POST /api/v1/manage/ai/complete`
+    - `POST /api/v1/manage/ai/generate`
 - Web UI:
   - `GET /` browse/filter words + download links
   - `GET /manage/` authenticated management dashboard
@@ -124,6 +132,12 @@ Functions:
 
 1. Complete missing word template fields (`hint` / `difficulty`) in batches of up to 50.
 2. Generate new words from prompt inputs (type/category/subcategory/difficulty/collection), sent to staging for normal review flow.
+   - Generation is constrained to active schema categories for guessing words.
+   - Invalid AI categories are skipped before staging.
+
+3. Complete Missing now stages AI suggestions first (does not directly update production words).
+   - Review and approve in staging like other uploads.
+   - You can run it globally from dashboard or on selected words in validation UI.
 
 ## UI modernization plan
 
@@ -132,6 +146,16 @@ See [ui-modernization-plan.md](docs/ui-modernization-plan.md) for a non-implemen
 - Django template modernization path
 - Hybrid React migration path
 - Full React SPA path
+
+## React transition (started)
+
+Initial React + Tailwind + shadcn-style frontend scaffold lives in [frontend/README.md](frontend/README.md).
+
+Implemented React pages:
+
+1. Landing page
+2. Feedback page
+3. Management page
 
 ## Deployment (Railway)
 

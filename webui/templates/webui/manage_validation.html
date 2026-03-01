@@ -19,6 +19,7 @@
       <option value="ai_complete">AI Complete Selected Words</option>
     </select>
     <input type="text" name="model" value="{{ default_model }}" placeholder="AI model (for AI action)">
+    <button type="button" id="select-all-validation">Select All</button>
     <button type="submit">Apply Action</button>
   </form>
 
@@ -65,4 +66,15 @@
     </tbody>
   </table>
 </section>
+<script>
+(() => {
+  const trigger = document.getElementById("select-all-validation");
+  if (!trigger) return;
+  trigger.addEventListener("click", () => {
+    document.querySelectorAll('input[name="word_ids"]').forEach((box) => {
+      box.checked = true;
+    });
+  });
+})();
+</script>
 {% endblock %}

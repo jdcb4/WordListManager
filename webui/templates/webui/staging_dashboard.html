@@ -45,7 +45,10 @@
   <table>
     <thead>
       <tr>
-        <th>Select</th>
+        <th>
+          Select
+          <div><input type="checkbox" id="select-all-staged"></div>
+        </th>
         <th>Word</th>
         <th>Type</th>
         <th>Category</th>
@@ -90,4 +93,14 @@
     <button type="submit">Review Selected Rows</button>
   </form>
 </section>
+<script>
+(() => {
+  const master = document.getElementById("select-all-staged");
+  if (!master) return;
+  const boxes = Array.from(document.querySelectorAll('input[name="staged_word_ids"]'));
+  master.addEventListener("change", () => {
+    boxes.forEach((box) => { box.checked = master.checked; });
+  });
+})();
+</script>
 {% endblock %}

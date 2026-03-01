@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 
 from django.db.models import Q
 
-from words.models import Difficulty, WordEntry
+from words.models import Category, Collection, Difficulty, WordEntry
 from words.services.normalization import sanitize_text
 from words.services.staging import create_batch_from_rows
 
@@ -106,11 +106,26 @@ def _chat_json(*, system_prompt: str, user_prompt: str, model: str) -> dict:
     return decoded
 
 
+def _allowed_category_map() -> dict[str, str]:
+    return {
+        name.casefold(): name
+        for name in Category.objects.filter(is_active=True).values_list("name", flat=True)
+    }
+
+
+def _allowed_collection_map() -> dict[str, str]:
+    return {
+        name.casefold(): name
+        for name in Collection.objects.filter(is_active=True).values_list("name", flat=True)
+    }
+
+
 def complete_word_templates(
     *,
     word_ids: list[int] | None = None,
     model: str | None = None,
     limit: int | None = None,
+    created_by=None,
 ) -> dict:
     queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
     if word_ids:
@@ -119,7 +134,8 @@ def complete_word_templates(
     if limit is not None and limit > 0:
         filtered = filtered[:limit]
     words = list(filtered)
-    updated = 0
+    staged_rows = []
+    suggested = 0
     processed = 0
     batches = 0
 
@@ -159,23 +175,51 @@ def complete_word_templates(
             item = by_id.get(word.id)
             if not item:
                 continue
-            changed = False
+
             suggested_hint = sanitize_text(str(item.get("hint", "")))
             suggested_difficulty = sanitize_text(str(item.get("difficulty", ""))).lower()
+            final_hint = word.hint
+            final_difficulty = word.difficulty
+            changed = False
             if not word.hint and suggested_hint:
-                word.hint = suggested_hint
+                final_hint = suggested_hint
                 changed = True
             if (
                 not word.difficulty
                 and suggested_difficulty in {Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD}
             ):
-                word.difficulty = suggested_difficulty
+                final_difficulty = suggested_difficulty
                 changed = True
             if changed:
-                word.save(update_fields=["hint", "difficulty", "updated_at"])
-                updated += 1
+                staged_rows.append(
+                    {
+                        "word": word.sanitized_text,
+                        "word_type": word.word_type,
+                        "category": word.category.name if word.category else "",
+                        "collection": word.collection.name if word.collection else "Base",
+                        "subcategory": word.subcategory,
+                        "hint": final_hint,
+                        "difficulty": final_difficulty,
+                    }
+                )
+                suggested += 1
 
-    return {"processed": processed, "updated": updated, "batches": batches}
+    if not staged_rows:
+        return {"processed": processed, "suggested": 0, "batches": batches, "batch_id": None, "staged_rows": 0}
+
+    batch = create_batch_from_rows(
+        rows=staged_rows,
+        source_name=f"ai_complete_{datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')}.json",
+        created_by=created_by,
+        note="AI template completion suggestions staged for review.",
+    )
+    return {
+        "processed": processed,
+        "suggested": suggested,
+        "batches": batches,
+        "batch_id": batch.id,
+        "staged_rows": batch.total_rows,
+    }
 
 
 def generate_words(
@@ -194,17 +238,35 @@ def generate_words(
     if count > MAX_AI_BATCH:
         count = MAX_AI_BATCH
 
+    allowed_categories = _allowed_category_map()
+    allowed_collections = _allowed_collection_map()
+    requested_category = sanitize_text(category)
+    requested_collection = sanitize_text(collection) or "Base"
+    canonical_requested_category = allowed_categories.get(requested_category.casefold(), "")
+    canonical_requested_collection = allowed_collections.get(
+        requested_collection.casefold(), "Base"
+    )
+    if word_type == "guessing" and requested_category and not canonical_requested_category:
+        allowed_display = ", ".join(sorted(allowed_categories.values())) or "(none configured)"
+        raise AIServiceError(
+            f"Category '{requested_category}' is not an active schema category. "
+            f"Allowed categories: {allowed_display}."
+        )
+
     system_prompt = (
         "You generate words for party games. Return strict JSON only. "
-        "Return exactly the requested number of unique items."
+        "Return exactly the requested number of unique items. "
+        "For guessing words, category must be one of allowed categories."
     )
     request_spec = {
         "count": count,
         "word_type": word_type,
-        "category": category,
+        "category": canonical_requested_category or requested_category,
         "subcategory": subcategory,
         "difficulty": difficulty,
-        "collection": collection or "Base",
+        "collection": canonical_requested_collection,
+        "allowed_categories": list(allowed_categories.values()),
+        "allowed_collections": list(allowed_collections.values()) or ["Base"],
     }
     user_prompt = (
         "Generate word entries for staging.\n"
@@ -218,20 +280,42 @@ def generate_words(
         raise AIServiceError("Model response must include list field 'items'.")
 
     normalized_rows = []
+    skipped_invalid_category = 0
     for item in items[:count]:
         if not isinstance(item, dict):
             continue
+        candidate_word_type = sanitize_text(str(item.get("word_type", word_type))).lower() or word_type
+        candidate_word_type = "guessing" if candidate_word_type not in {"guessing", "describing"} else candidate_word_type
+
+        raw_category = sanitize_text(str(item.get("category", canonical_requested_category or requested_category)))
+        if candidate_word_type == "guessing":
+            if canonical_requested_category:
+                canonical_category = canonical_requested_category
+            else:
+                canonical_category = allowed_categories.get(raw_category.casefold(), "")
+            if not canonical_category:
+                skipped_invalid_category += 1
+                continue
+        else:
+            canonical_category = allowed_categories.get(raw_category.casefold(), raw_category)
+
+        raw_collection = sanitize_text(str(item.get("collection", canonical_requested_collection)))
+        canonical_collection = allowed_collections.get(raw_collection.casefold(), canonical_requested_collection or "Base")
+
         normalized_rows.append(
             {
                 "word": sanitize_text(str(item.get("word", ""))),
-                "word_type": sanitize_text(str(item.get("word_type", word_type))) or word_type,
-                "category": sanitize_text(str(item.get("category", category))),
+                "word_type": candidate_word_type,
+                "category": canonical_category,
                 "subcategory": sanitize_text(str(item.get("subcategory", subcategory))),
                 "hint": sanitize_text(str(item.get("hint", ""))),
                 "difficulty": sanitize_text(str(item.get("difficulty", difficulty))).lower(),
-                "collection": sanitize_text(str(item.get("collection", collection or "Base"))) or "Base",
+                "collection": canonical_collection,
             }
         )
+
+    if not normalized_rows:
+        return {"requested": count, "generated": 0, "batch_id": None, "skipped_invalid_category": skipped_invalid_category}
 
     batch = create_batch_from_rows(
         rows=normalized_rows,
@@ -239,4 +323,9 @@ def generate_words(
         created_by=created_by,
         note="AI generated words via management interface.",
     )
-    return {"requested": count, "generated": len(normalized_rows), "batch_id": batch.id}
+    return {
+        "requested": count,
+        "generated": len(normalized_rows),
+        "batch_id": batch.id,
+        "skipped_invalid_category": skipped_invalid_category,
+    }

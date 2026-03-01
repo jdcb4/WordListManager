@@ -211,15 +211,16 @@ def apply_validation_action(request: HttpRequest) -> HttpResponse:
     if action == "ai_complete":
         model = request.POST.get("model", "").strip() or DEFAULT_MODEL
         try:
-            report = complete_word_templates(word_ids=word_ids, model=model)
+            report = complete_word_templates(word_ids=word_ids, model=model, created_by=request.user)
         except AIServiceError as exc:
             messages.error(request, f"AI completion failed: {exc}")
             return redirect("manage-validation")
         messages.success(
             request,
-            f"AI completion processed {report['processed']} word(s), updated {report['updated']}.",
+            f"AI completion processed {report['processed']} word(s), "
+            f"suggested {report['suggested']} and staged batch {report['batch_id']}.",
         )
-        return redirect("manage-validation")
+        return redirect("staging-dashboard")
 
     messages.error(request, "Unknown action.")
     return redirect("manage-validation")
@@ -237,17 +238,17 @@ def run_ai_complete_templates(request: HttpRequest) -> HttpResponse:
     limit = max(1, min(limit, 2000))
 
     try:
-        report = complete_word_templates(model=model, limit=limit)
+        report = complete_word_templates(model=model, limit=limit, created_by=request.user)
     except AIServiceError as exc:
         messages.error(request, f"AI completion failed: {exc}")
         return redirect("manage-dashboard")
 
     messages.success(
         request,
-        f"AI completion processed {report['processed']} words in {report['batches']} batches, "
-        f"updated {report['updated']}.",
+        f"AI completion processed {report['processed']} words in {report['batches']} batches; "
+        f"suggested {report['suggested']} and staged batch {report['batch_id']}.",
     )
-    return redirect("manage-dashboard")
+    return redirect("staging-dashboard")
 
 
 @require_POST
@@ -283,9 +284,16 @@ def run_ai_generate_words(request: HttpRequest) -> HttpResponse:
     except AIServiceError as exc:
         messages.error(request, f"AI generation failed: {exc}")
         return redirect("manage-dashboard")
+    if not report.get("batch_id"):
+        messages.error(
+            request,
+            f"AI generation produced no stageable rows (skipped invalid category: {report['skipped_invalid_category']}).",
+        )
+        return redirect("manage-dashboard")
     messages.success(
         request,
-        f"AI generated {report['generated']} item(s), staged in batch {report['batch_id']}.",
+        f"AI generated {report['generated']} item(s), staged in batch {report['batch_id']} "
+        f"(skipped invalid category: {report['skipped_invalid_category']}).",
     )
     return redirect("staging-dashboard")
 

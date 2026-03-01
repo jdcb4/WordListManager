@@ -16,7 +16,16 @@ from api.serializers import (
     WordEntrySerializer,
     WordFeedbackCreateSerializer,
 )
-from words.models import DatasetVersion, ExportFormat, WordEntry, WordFeedback
+from words.models import (
+    DatasetVersion,
+    ExportFormat,
+    WordEntry,
+    WordFeedback,
+)
+from words.services.ai import AIServiceError, DEFAULT_MODEL, complete_word_templates, generate_words
+from words.services.maintenance import dedupe_word_entries
+from words.services.pipeline import run_publish_pipeline
+from words.services.quality import validate_wordlist
 
 
 class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -150,5 +159,129 @@ class FeedbackCreateView(APIView):
             reporter_token=request.session.session_key or "",
         )
         return Response({"id": feedback.id, "status": "recorded"}, status=status.HTTP_201_CREATED)
+
+
+class ManageDashboardView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        active_words = WordEntry.objects.filter(is_active=True)
+        latest = DatasetVersion.latest()
+        return Response(
+            {
+                "total_active_words": active_words.count(),
+                "dataset_version": latest.version_number if latest else None,
+                "collections": list(
+                    active_words.values("collection__name")
+                    .annotate(total=Count("id"))
+                    .order_by("collection__name")
+                ),
+                "types": list(
+                    active_words.values("word_type")
+                    .annotate(total=Count("id"))
+                    .order_by("word_type")
+                ),
+            }
+        )
+
+
+class ManagePublishView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        report = run_publish_pipeline(force=False, run_dedupe=True, run_validation=True)
+        return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageDedupeView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        report = dedupe_word_entries(dry_run=False)
+        return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageValidateView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        report = validate_wordlist()
+        return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageValidationActionView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        action = str(request.data.get("action", "")).strip()
+        raw_ids = request.data.get("word_ids", [])
+        if isinstance(raw_ids, str):
+            raw_ids = [raw_ids]
+        word_ids = sorted({int(item) for item in raw_ids if str(item).isdigit()})
+        if not word_ids:
+            return Response({"detail": "No word_ids provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if action == "deactivate":
+            updated = WordEntry.objects.filter(id__in=word_ids, is_active=True).update(is_active=False)
+            return Response({"action": action, "updated": updated})
+
+        if action == "ai_complete":
+            model = str(request.data.get("model", "")).strip() or DEFAULT_MODEL
+            try:
+                report = complete_word_templates(word_ids=word_ids, model=model, created_by=request.user)
+            except AIServiceError as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"action": action, "report": report})
+
+        return Response({"detail": "Unknown action."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ManageAICompleteView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        try:
+            limit = int(request.data.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        limit = max(1, min(limit, 2000))
+        model = str(request.data.get("model", "")).strip() or DEFAULT_MODEL
+        try:
+            report = complete_word_templates(model=model, limit=limit, created_by=request.user)
+        except AIServiceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageAIGenerateView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        word_type = str(request.data.get("word_type", "")).strip().lower()
+        if word_type not in {"guessing", "describing"}:
+            return Response({"detail": "word_type must be guessing or describing."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            count = int(request.data.get("count", 20))
+        except (TypeError, ValueError):
+            count = 20
+        model = str(request.data.get("model", "")).strip() or DEFAULT_MODEL
+        category = str(request.data.get("category", "")).strip()
+        subcategory = str(request.data.get("subcategory", "")).strip()
+        difficulty = str(request.data.get("difficulty", "")).strip().lower()
+        collection = str(request.data.get("collection", "")).strip() or "Base"
+        try:
+            report = generate_words(
+                word_type=word_type,
+                category=category,
+                subcategory=subcategory,
+                difficulty=difficulty,
+                collection=collection,
+                count=count,
+                model=model,
+                created_by=request.user,
+            )
+        except AIServiceError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(report, status=status.HTTP_200_OK)
 
 # Create your views here.
