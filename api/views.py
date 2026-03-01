@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
@@ -19,6 +20,9 @@ from api.serializers import (
 from words.models import (
     DatasetVersion,
     ExportFormat,
+    ImportBatch,
+    StagedWord,
+    StagedWordStatus,
     WordEntry,
     WordFeedback,
 )
@@ -26,6 +30,7 @@ from words.services.ai import AIServiceError, DEFAULT_MODEL, complete_word_templ
 from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
+from words.services.staging import create_batch_from_upload, review_staged_word
 
 
 class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -159,6 +164,236 @@ class FeedbackCreateView(APIView):
             reporter_token=request.session.session_key or "",
         )
         return Response({"id": feedback.id, "status": "recorded"}, status=status.HTTP_201_CREATED)
+
+
+def _coerce_id_list(raw_ids) -> list[int]:
+    if isinstance(raw_ids, str):
+        raw_ids = [raw_ids]
+    if not isinstance(raw_ids, list):
+        return []
+    return sorted({int(item) for item in raw_ids if str(item).isdigit()})
+
+
+def _as_text(value) -> str:
+    return (value or "").strip() if isinstance(value, str) else (str(value).strip() if value is not None else "")
+
+
+def _build_staging_preview(staged_word: StagedWord, existing_word: WordEntry | None) -> dict:
+    staged_category = _as_text(staged_word.category_name)
+    staged_collection = _as_text(staged_word.collection_name) or "Base"
+    staged_values = {
+        "text": _as_text(staged_word.sanitized_text or staged_word.text),
+        "word_type": _as_text(staged_word.word_type),
+        "category": staged_category,
+        "collection": staged_collection,
+        "subcategory": _as_text(staged_word.subcategory),
+        "hint": _as_text(staged_word.hint),
+        "difficulty": _as_text(staged_word.difficulty),
+        "is_active": "true",
+    }
+    if existing_word is None:
+        return {
+            "action": "create",
+            "is_new": True,
+            "changed_fields": [field for field, value in staged_values.items() if value and field != "is_active"]
+            + ["is_active"],
+            "fields": [
+                {"field": field, "from": "", "to": value, "changed": bool(value or field == "is_active")}
+                for field, value in staged_values.items()
+            ],
+        }
+
+    existing_values = {
+        "text": _as_text(existing_word.sanitized_text or existing_word.text),
+        "word_type": _as_text(existing_word.word_type),
+        "category": _as_text(existing_word.category.name if existing_word.category else ""),
+        "collection": _as_text(existing_word.collection.name if existing_word.collection else ""),
+        "subcategory": _as_text(existing_word.subcategory),
+        "hint": _as_text(existing_word.hint),
+        "difficulty": _as_text(existing_word.difficulty),
+        "is_active": "true" if existing_word.is_active else "false",
+    }
+    field_diffs = []
+    changed_fields = []
+    for field, staged_value in staged_values.items():
+        current_value = existing_values[field]
+        changed = current_value != staged_value
+        if changed:
+            changed_fields.append(field)
+        field_diffs.append(
+            {
+                "field": field,
+                "from": current_value,
+                "to": staged_value,
+                "changed": changed,
+            }
+        )
+    return {
+        "action": "update",
+        "is_new": False,
+        "changed_fields": changed_fields,
+        "fields": field_diffs,
+        "existing_word_id": existing_word.id,
+    }
+
+
+class ManageStagingView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        status_filter = _as_text(request.query_params.get("status", "pending")).lower()
+        batch_id_raw = _as_text(request.query_params.get("batch_id", ""))
+        try:
+            limit = int(request.query_params.get("limit", 200))
+        except (TypeError, ValueError):
+            limit = 200
+        limit = max(1, min(limit, 500))
+
+        queryset = StagedWord.objects.select_related("batch").order_by("-created_at", "-id")
+        if status_filter in {StagedWordStatus.PENDING, StagedWordStatus.APPROVED, StagedWordStatus.REJECTED}:
+            queryset = queryset.filter(status=status_filter)
+        if batch_id_raw.isdigit():
+            queryset = queryset.filter(batch_id=int(batch_id_raw))
+
+        total = queryset.count()
+        staged_words = list(queryset[:limit])
+        keys = {(word.normalized_text, word.word_type) for word in staged_words}
+        normalized_values = [item[0] for item in keys]
+        type_values = [item[1] for item in keys]
+        existing_words = (
+            WordEntry.objects.filter(normalized_text__in=normalized_values, word_type__in=type_values)
+            .select_related("category", "collection")
+            .order_by("id")
+        )
+        existing_by_key = {(word.normalized_text, word.word_type): word for word in existing_words}
+
+        results = []
+        for staged_word in staged_words:
+            existing_word = existing_by_key.get((staged_word.normalized_text, staged_word.word_type))
+            preview = _build_staging_preview(staged_word, existing_word)
+            results.append(
+                {
+                    "id": staged_word.id,
+                    "status": staged_word.status,
+                    "word": staged_word.sanitized_text,
+                    "word_type": staged_word.word_type,
+                    "category": staged_word.category_name,
+                    "collection": staged_word.collection_name or "Base",
+                    "subcategory": staged_word.subcategory,
+                    "hint": staged_word.hint,
+                    "difficulty": staged_word.difficulty,
+                    "created_at": staged_word.created_at,
+                    "batch": {
+                        "id": staged_word.batch_id,
+                        "source_filename": staged_word.batch.source_filename,
+                    },
+                    "preview": preview,
+                }
+            )
+
+        batch_rows = (
+            ImportBatch.objects.annotate(
+                pending_count=Count("staged_words", filter=Q(staged_words__status=StagedWordStatus.PENDING)),
+                approved_count=Count("staged_words", filter=Q(staged_words__status=StagedWordStatus.APPROVED)),
+                rejected_count=Count("staged_words", filter=Q(staged_words__status=StagedWordStatus.REJECTED)),
+            )
+            .order_by("-created_at")[:40]
+        )
+        batches = [
+            {
+                "id": row.id,
+                "source_filename": row.source_filename,
+                "status": row.status,
+                "total_rows": row.total_rows,
+                "pending_count": row.pending_count,
+                "approved_count": row.approved_count,
+                "rejected_count": row.rejected_count,
+                "created_at": row.created_at,
+            }
+            for row in batch_rows
+        ]
+        return Response(
+            {
+                "total": total,
+                "limit": limit,
+                "status_filter": status_filter,
+                "batch_id": int(batch_id_raw) if batch_id_raw.isdigit() else None,
+                "results": results,
+                "batches": batches,
+            }
+        )
+
+
+class ManageStagingUploadView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        upload_file = request.FILES.get("file") or request.FILES.get("upload_file")
+        if upload_file is None:
+            return Response({"detail": "No upload file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        note = _as_text(request.data.get("note", ""))
+        batch = create_batch_from_upload(
+            file_name=upload_file.name,
+            file_bytes=upload_file.read(),
+            created_by=request.user,
+            note=note,
+        )
+        return Response(
+            {
+                "batch_id": batch.id,
+                "source_filename": batch.source_filename,
+                "status": batch.status,
+                "total_rows": batch.total_rows,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class ManageStagingReviewView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        action = _as_text(request.data.get("action", "")).lower()
+        staged_word_ids = _coerce_id_list(request.data.get("staged_word_ids", []))
+        if action not in {"approve", "reject"}:
+            return Response({"detail": "action must be approve or reject."}, status=status.HTTP_400_BAD_REQUEST)
+        if not staged_word_ids:
+            return Response({"detail": "No staged_word_ids provided."}, status=status.HTTP_400_BAD_REQUEST)
+        note = _as_text(request.data.get("note", ""))
+        staged_words = list(
+            StagedWord.objects.filter(id__in=staged_word_ids).select_related("batch").order_by("id")
+        )
+        reviewed = 0
+        approved = 0
+        rejected = 0
+        skipped = 0
+        for staged_word in staged_words:
+            if staged_word.status != StagedWordStatus.PENDING:
+                skipped += 1
+                continue
+            review_staged_word(
+                staged_word=staged_word,
+                reviewer=request.user,
+                approve=(action == "approve"),
+                note=note,
+            )
+            reviewed += 1
+            if action == "approve":
+                approved += 1
+            else:
+                rejected += 1
+        return Response(
+            {
+                "action": action,
+                "requested": len(staged_word_ids),
+                "reviewed": reviewed,
+                "approved": approved,
+                "rejected": rejected,
+                "skipped_non_pending": skipped,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class ManageDashboardView(APIView):

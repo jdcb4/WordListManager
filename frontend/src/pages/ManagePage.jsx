@@ -3,14 +3,21 @@ import { useEffect, useState } from "react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
-import { apiGet, apiPost } from "../lib/http";
+import { apiGet, apiPost, apiPostForm } from "../lib/http";
 
 export function ManagePage() {
   const [dashboard, setDashboard] = useState(null);
   const [validation, setValidation] = useState(null);
+  const [staging, setStaging] = useState({ total: 0, results: [], batches: [] });
+  const [stagingFilters, setStagingFilters] = useState({ status: "pending", batch_id: "", limit: 200 });
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedStagedIds, setSelectedStagedIds] = useState([]);
+  const [expandedStagedRows, setExpandedStagedRows] = useState([]);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadNote, setUploadNote] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [model, setModel] = useState("google/gemini-2.5-flash-lite");
   const [generateForm, setGenerateForm] = useState({
     word_type: "guessing",
@@ -22,14 +29,22 @@ export function ManagePage() {
   });
 
   async function refresh() {
+    const params = new URLSearchParams();
+    if (stagingFilters.status) params.set("status", stagingFilters.status);
+    if (stagingFilters.batch_id) params.set("batch_id", stagingFilters.batch_id);
+    params.set("limit", String(stagingFilters.limit || 200));
     try {
-      const [dashData, validationData] = await Promise.all([
+      const [dashData, validationData, stagingData] = await Promise.all([
         apiGet("/api/v1/manage/dashboard"),
         apiGet("/api/v1/manage/validate"),
+        apiGet(`/api/v1/manage/staging?${params.toString()}`),
       ]);
       setDashboard(dashData);
       setValidation(validationData);
+      setStaging(stagingData);
       setSelectedIds([]);
+      setSelectedStagedIds([]);
+      setExpandedStagedRows([]);
     } catch (err) {
       setMessage(String(err));
     }
@@ -37,7 +52,7 @@ export function ManagePage() {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [stagingFilters.status, stagingFilters.batch_id, stagingFilters.limit]);
 
   async function runAction(action, payload = {}) {
     setLoading(true);
@@ -57,11 +72,59 @@ export function ManagePage() {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
   }
 
+  function toggleStagedSelect(id) {
+    setSelectedStagedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+  }
+
+  function toggleStagedDiff(id) {
+    setExpandedStagedRows((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+  }
+
   function selectAll() {
     const ids = (validation?.issues || [])
       .map((row) => row.word_id)
       .filter((value) => Number.isInteger(value));
     setSelectedIds(Array.from(new Set(ids)));
+  }
+
+  function selectAllStaged() {
+    const ids = (staging?.results || []).map((row) => row.id).filter((value) => Number.isInteger(value));
+    setSelectedStagedIds(Array.from(new Set(ids)));
+  }
+
+  async function runStagingReview(action) {
+    if (selectedStagedIds.length === 0) return;
+    await runAction("/api/v1/manage/staging/review", {
+      action,
+      staged_word_ids: selectedStagedIds,
+      note: "",
+    });
+  }
+
+  async function uploadStagingFile(event) {
+    event.preventDefault();
+    if (!uploadFile) {
+      setMessage("Choose a CSV or JSON file to upload.");
+      return;
+    }
+    setUploading(true);
+    setMessage("");
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("note", uploadNote);
+      const result = await apiPostForm("/api/v1/manage/staging/upload", formData);
+      setMessage(
+        `Uploaded staging batch ${result.batch_id} with ${result.total_rows} row(s).`
+      );
+      setUploadFile(null);
+      setUploadNote("");
+      await refresh();
+    } catch (err) {
+      setMessage(String(err));
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -88,6 +151,154 @@ export function ManagePage() {
             </div>
           </div>
           <div className="rounded border border-border bg-muted p-3 text-xs">{message || "No recent action output."}</div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Staging Review (React Migration)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" onSubmit={uploadStagingFile}>
+            <input
+              type="file"
+              accept=".csv,.json"
+              onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+              className="h-9 rounded border border-input bg-white px-2 text-sm"
+            />
+            <Input value={uploadNote} onChange={(event) => setUploadNote(event.target.value)} placeholder="Upload note" />
+            <Button type="submit" disabled={uploading}>
+              {uploading ? "Uploading..." : "Upload to Staging"}
+            </Button>
+          </form>
+
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <select
+              className="h-9 rounded border border-input bg-white px-3 text-sm"
+              value={stagingFilters.status}
+              onChange={(event) => setStagingFilters((prev) => ({ ...prev, status: event.target.value }))}
+            >
+              <option value="pending">pending</option>
+              <option value="approved">approved</option>
+              <option value="rejected">rejected</option>
+              <option value="">all statuses</option>
+            </select>
+            <select
+              className="h-9 rounded border border-input bg-white px-3 text-sm"
+              value={stagingFilters.batch_id}
+              onChange={(event) => setStagingFilters((prev) => ({ ...prev, batch_id: event.target.value }))}
+            >
+              <option value="">all batches</option>
+              {(staging?.batches || []).map((batch) => (
+                <option key={batch.id} value={batch.id}>
+                  #{batch.id} {batch.source_filename}
+                </option>
+              ))}
+            </select>
+            <Input
+              type="number"
+              min="1"
+              max="500"
+              value={stagingFilters.limit}
+              onChange={(event) => setStagingFilters((prev) => ({ ...prev, limit: Number(event.target.value || 200) }))}
+            />
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Showing {(staging?.results || []).length} of {staging?.total || 0} staged row(s).
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={selectAllStaged}>Select All</Button>
+            <Button onClick={() => runStagingReview("approve")} disabled={loading || selectedStagedIds.length === 0}>
+              Approve Selected
+            </Button>
+            <Button variant="destructive" onClick={() => runStagingReview("reject")} disabled={loading || selectedStagedIds.length === 0}>
+              Reject Selected
+            </Button>
+          </div>
+
+          <div className="max-h-[500px] overflow-auto rounded border border-border">
+            <table className="min-w-full text-sm">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
+                  <th className="px-2 py-1 text-left">Select</th>
+                  <th className="px-2 py-1 text-left">Word</th>
+                  <th className="px-2 py-1 text-left">Type</th>
+                  <th className="px-2 py-1 text-left">Batch</th>
+                  <th className="px-2 py-1 text-left">Preview</th>
+                  <th className="px-2 py-1 text-left">Changed Components</th>
+                  <th className="px-2 py-1 text-left">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(staging?.results || []).map((row) => (
+                  <tr key={row.id} className="border-t border-border align-top">
+                    <td className="px-2 py-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedStagedIds.includes(row.id)}
+                        onChange={() => toggleStagedSelect(row.id)}
+                      />
+                    </td>
+                    <td className="px-2 py-1">
+                      <div className="font-semibold">{row.word}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {row.category || "-"} | {row.collection || "-"} | {row.difficulty || "-"}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1">{row.word_type}</td>
+                    <td className="px-2 py-1">#{row.batch.id}</td>
+                    <td className="px-2 py-1">
+                      <span className={`rounded px-2 py-1 text-xs ${row.preview.is_new ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                        {row.preview.is_new ? "Create New" : "Update Existing"}
+                      </span>
+                    </td>
+                    <td className="px-2 py-1">
+                      <div className="flex flex-wrap gap-1">
+                        {row.preview.changed_fields.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">No changes</span>
+                        ) : (
+                          row.preview.changed_fields.map((field) => (
+                            <span key={`${row.id}-${field}`} className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-700">
+                              {field}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1">
+                      <Button variant="outline" onClick={() => toggleStagedDiff(row.id)}>
+                        {expandedStagedRows.includes(row.id) ? "Hide" : "View"}
+                      </Button>
+                      {expandedStagedRows.includes(row.id) ? (
+                        <div className="mt-2 overflow-auto rounded border border-border bg-white">
+                          <table className="min-w-[480px] text-xs">
+                            <thead className="bg-muted">
+                              <tr>
+                                <th className="px-2 py-1 text-left">Field</th>
+                                <th className="px-2 py-1 text-left">Current</th>
+                                <th className="px-2 py-1 text-left">Staged</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {row.preview.fields.map((fieldDiff) => (
+                                <tr key={`${row.id}-${fieldDiff.field}`} className={`border-t border-border ${fieldDiff.changed ? "bg-amber-50" : ""}`}>
+                                  <td className="px-2 py-1 font-medium">{fieldDiff.field}</td>
+                                  <td className="px-2 py-1">{fieldDiff.from || "-"}</td>
+                                  <td className="px-2 py-1">{fieldDiff.to || "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
 

@@ -28,6 +28,9 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
     - `GET /api/v1/manage/dashboard`
     - `POST /api/v1/manage/publish`
     - `POST /api/v1/manage/dedupe`
+    - `GET /api/v1/manage/staging`
+    - `POST /api/v1/manage/staging/upload`
+    - `POST /api/v1/manage/staging/review`
     - `GET /api/v1/manage/validate`
     - `POST /api/v1/manage/validation/action`
     - `POST /api/v1/manage/ai/complete`
@@ -156,6 +159,7 @@ Implemented React pages:
 1. Landing page
 2. Feedback page
 3. Management page
+   - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
 
 ## Deployment (Railway)
 

@@ -30,3 +30,20 @@ export async function apiPost(url, body) {
   }
   return payload;
 }
+
+export async function apiPostForm(url, formData) {
+  const csrfToken = getCookie("csrftoken");
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "X-CSRFToken": csrfToken,
+    },
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || `POST ${url} failed with ${response.status}`);
+  }
+  return payload;
+}
