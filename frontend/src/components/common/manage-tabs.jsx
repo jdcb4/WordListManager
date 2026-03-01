@@ -1,27 +1,35 @@
+import { NavLink } from "react-router-dom";
+
+import { cn } from "../../lib/utils";
+
 const tabs = [
-  { label: "Overview", href: "/manage/" },
-  { label: "Staging", href: "/manage/staging/" },
-  { label: "AI", href: "/manage/ai/" },
-  { label: "Validation", href: "/manage/validation/" },
-  { label: "Feedback", href: "/manage/feedback/" },
+  { label: "Overview", href: "/manage", key: "overview" },
+  { label: "Staging", href: "/manage/staging", key: "staging" },
+  { label: "AI", href: "/manage/ai", key: "ai" },
+  { label: "Validation", href: "/manage/validation", key: "validation" },
+  { label: "Feedback", href: "/manage/feedback", key: "feedback" },
 ];
 
 export function ManageTabs({ active }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-2 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-2 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         {tabs.map((tab) => (
-          <a
+          <NavLink
             key={tab.href}
-            href={tab.href}
-            className={
-              active === tab.label.toLowerCase()
-                ? "rounded-full bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
-                : "rounded-full border border-border bg-white px-3 py-1 text-sm"
+            to={tab.href}
+            end={tab.href === "/manage"}
+            className={({ isActive }) =>
+              cn(
+                "rounded-lg px-3 py-1.5 text-sm transition",
+                isActive || active === tab.key
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-white text-muted-foreground hover:bg-muted hover:text-foreground"
+              )
             }
           >
             {tab.label}
-          </a>
+          </NavLink>
         ))}
       </div>
     </div>

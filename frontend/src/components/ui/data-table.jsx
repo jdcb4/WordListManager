@@ -12,28 +12,42 @@ export function DataTable({
   data,
   sorting,
   onSortingChange,
+  columnVisibility,
+  onColumnVisibilityChange,
   manualSorting = false,
   emptyText = "No rows found.",
   className,
+  density = "comfortable",
+  getRowId,
+  onRowClick,
+  rowClassName,
 }) {
   const table = useReactTable({
     data,
     columns,
-    state: sorting ? { sorting } : {},
+    state: {
+      ...(sorting ? { sorting } : {}),
+      ...(columnVisibility ? { columnVisibility } : {}),
+    },
     onSortingChange,
+    onColumnVisibilityChange,
     manualSorting,
+    getRowId,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
   });
 
+  const cellPadding = density === "compact" ? "px-2 py-1.5" : "px-3 py-2.5";
+  const headerPadding = density === "compact" ? "px-2 py-1.5" : "px-3 py-2";
+
   return (
-    <div className={cn("overflow-auto rounded-xl border border-border bg-white", className)}>
+    <div className={cn("overflow-auto rounded-xl border border-border bg-card", className)}>
       <table className="min-w-full text-sm">
-        <thead className="sticky top-0 bg-muted">
+        <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <th key={header.id} className="px-2 py-2 text-left align-top font-semibold">
+                <th key={header.id} className={cn(headerPadding, "text-left align-top font-semibold")}>
                   {header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())}
@@ -45,9 +59,17 @@ export function DataTable({
         <tbody>
           {table.getRowModel().rows.length > 0 ? (
             table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-t border-border align-top">
+              <tr
+                key={row.id}
+                className={cn(
+                  "border-t border-border align-top transition hover:bg-muted/35",
+                  onRowClick ? "cursor-pointer" : "",
+                  typeof rowClassName === "function" ? rowClassName(row.original) : rowClassName
+                )}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+              >
                 {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-2 py-2">
+                  <td key={cell.id} className={cellPadding}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
@@ -75,8 +97,8 @@ export function SortableHeader({ title, column, onToggle }) {
       onClick={onToggle || (() => column?.toggleSorting?.(sorted === "asc"))}
     >
       <span>{title}</span>
-      <span className="text-xs text-muted-foreground">
-        {sorted === "asc" ? "▲" : sorted === "desc" ? "▼" : "↕"}
+      <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+        {sorted === "asc" ? "asc" : sorted === "desc" ? "desc" : "sort"}
       </span>
     </button>
   );

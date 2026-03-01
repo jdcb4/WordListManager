@@ -11,7 +11,14 @@ Implemented pages:
 5. Management staging (`/manage/staging`)
 6. Management validation (`/manage/validation`)
 7. Management feedback moderation (`/manage/feedback`)
-   - Staging includes upload/review with field-by-field change previews
+   - Staging includes queue workflow, field-by-field change drawer, and shortcuts (`J/K`, `A`, `R`)
+
+Shared UX primitives now used across pages:
+
+- App shell with grouped sidebar navigation
+- Consistent page headers with primary/secondary actions
+- Reusable data table component (sorting, visibility, density)
+- Empty states, bulk action bar, side drawer, confirm dialogs
 
 ## Single-host deployment
 

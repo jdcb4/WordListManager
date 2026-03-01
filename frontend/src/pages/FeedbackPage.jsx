@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { PageHeader } from "../components/common/page-header";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { apiGet, apiPost } from "../lib/http";
+
+const SWIPE_THRESHOLD = 110;
 
 export function FeedbackPage() {
   const [word, setWord] = useState(null);
   const [status, setStatus] = useState("Loading...");
   const [dragX, setDragX] = useState(0);
+  const [votes, setVotes] = useState(0);
   const dragStartRef = useRef(null);
 
   const loadWord = useCallback(async () => {
@@ -27,6 +32,19 @@ export function FeedbackPage() {
     loadWord();
   }, [loadWord]);
 
+  async function submit(verdict) {
+    if (!word) return;
+    setStatus("Saving feedback...");
+    try {
+      await apiPost("/api/v1/feedback", { word: word.id, verdict, comment: "" });
+      setVotes((prev) => prev + 1);
+      setStatus(verdict === "good" ? "Marked good." : "Marked bad.");
+      await loadWord();
+    } catch (err) {
+      setStatus(String(err));
+    }
+  }
+
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === "ArrowRight") submit("good");
@@ -36,20 +54,11 @@ export function FeedbackPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [word]);
 
-  async function submit(verdict) {
-    if (!word) return;
-    setStatus("Saving feedback...");
-    try {
-      await apiPost("/api/v1/feedback", { word: word.id, verdict, comment: "" });
-      setStatus(verdict === "good" ? "Marked good." : "Marked bad.");
-      await loadWord();
-    } catch (err) {
-      setStatus(String(err));
-    }
-  }
-
   function onPointerDown(event) {
     dragStartRef.current = event.clientX;
+    if (event.currentTarget.setPointerCapture) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
   }
 
   function onPointerMove(event) {
@@ -58,12 +67,11 @@ export function FeedbackPage() {
   }
 
   function onPointerUp() {
-    const threshold = 110;
-    if (dragX > threshold) {
+    if (dragX > SWIPE_THRESHOLD) {
       submit("good");
       return;
     }
-    if (dragX < -threshold) {
+    if (dragX < -SWIPE_THRESHOLD) {
       submit("bad");
       return;
     }
@@ -71,63 +79,54 @@ export function FeedbackPage() {
     dragStartRef.current = null;
   }
 
-  function onTouchStart(event) {
-    dragStartRef.current = event.touches[0]?.clientX ?? null;
-  }
-
-  function onTouchMove(event) {
-    if (dragStartRef.current === null) return;
-    const nextX = event.touches[0]?.clientX;
-    if (typeof nextX !== "number") return;
-    setDragX(nextX - dragStartRef.current);
-  }
-
-  function onTouchEnd() {
-    onPointerUp();
-  }
-
   return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle>Swipe Feedback</CardTitle>
-        <div className="text-sm text-muted-foreground">
-          Swipe or use arrow keys: left = bad, right = good.
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div
-          className="mx-auto flex h-80 max-w-md select-none items-center justify-center rounded-2xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 text-center shadow-sm"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-          style={{
-            transform: `translateX(${dragX}px) rotate(${dragX / 20}deg)`,
-            transition: dragStartRef.current === null ? "transform 0.2s ease" : "none",
-            touchAction: "none",
-          }}
-        >
-          {word ? (
-            <div>
-              <div className="text-4xl font-bold tracking-tight">{word.word}</div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {[word.word_type, word.category, word.collection].filter(Boolean).join(" | ")}
-              </div>
-              <div className="mt-2 text-sm">{word.hint || ""}</div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Swipe Feedback"
+        description="Quick playtest loop for quality signals. Keyboard: left and right arrows."
+        secondaryActions={<Badge className="py-1 text-sm">Session votes: {votes}</Badge>}
+      />
+
+      <Card className="overflow-hidden">
+        <CardContent className="space-y-4 pt-4">
+          <div className="mx-auto w-full max-w-lg">
+            <div
+              className="flex h-[420px] select-none items-center justify-center rounded-3xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 text-center shadow-md"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              style={{
+                transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)`,
+                transition: dragStartRef.current === null ? "transform 220ms ease" : "none",
+                touchAction: "pan-y",
+              }}
+            >
+              {word ? (
+                <div className="space-y-3">
+                  <div className="text-4xl font-semibold tracking-tight">{word.word}</div>
+                  <div className="flex flex-wrap justify-center gap-2 text-xs">
+                    {word.word_type ? <Badge>{word.word_type}</Badge> : null}
+                    {word.category ? <Badge>{word.category}</Badge> : null}
+                    {word.collection ? <Badge>{word.collection}</Badge> : null}
+                    {word.difficulty ? <Badge>{word.difficulty}</Badge> : null}
+                  </div>
+                  {word.hint ? <div className="text-sm text-muted-foreground">Hint: {word.hint}</div> : null}
+                </div>
+              ) : (
+                <div>No word available.</div>
+              )}
             </div>
-          ) : (
-            <div>No word available.</div>
-          )}
-        </div>
-        <div className="flex justify-center gap-3">
-          <Button variant="destructive" onClick={() => submit("bad")}>Bad (Left)</Button>
-          <Button onClick={() => submit("good")}>Good (Right)</Button>
-        </div>
-        <div className="text-center text-sm text-muted-foreground">{status}</div>
-      </CardContent>
-    </Card>
+          </div>
+
+          <div className="mx-auto flex max-w-md justify-center gap-3">
+            <Button variant="destructive" className="flex-1" onClick={() => submit("bad")}>Bad</Button>
+            <Button className="flex-1" onClick={() => submit("good")}>Good</Button>
+          </div>
+
+          <div className="text-center text-sm text-muted-foreground">{status}</div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

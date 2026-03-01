@@ -588,9 +588,15 @@ class ManageAICompleteView(APIView):
         except (TypeError, ValueError):
             limit = 200
         limit = max(1, min(limit, 2000))
+        word_ids = _coerce_id_list(request.data.get("word_ids", []))
         model = str(request.data.get("model", "")).strip() or DEFAULT_MODEL
         try:
-            report = complete_word_templates(model=model, limit=limit, created_by=request.user)
+            report = complete_word_templates(
+                word_ids=word_ids or None,
+                model=model,
+                limit=limit,
+                created_by=request.user,
+            )
         except AIServiceError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(report, status=status.HTTP_200_OK)

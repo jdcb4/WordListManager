@@ -143,7 +143,7 @@ Functions:
 
 3. Complete Missing now stages AI suggestions first (does not directly update production words).
    - Review and approve in staging like other uploads.
-   - You can run it globally from dashboard or on selected words in validation UI.
+   - You can run it globally, by selected word IDs in AI tools, or on selected words in validation UI.
 
 ## UI modernization plan
 

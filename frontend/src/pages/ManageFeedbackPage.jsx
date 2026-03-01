@@ -1,10 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageHeader } from "../components/common/page-header";
+import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
+import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost } from "../lib/http";
 
@@ -18,7 +21,7 @@ export function ManageFeedbackPage() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [commentFilter, setCommentFilter] = useState("");
+  const [search, setSearch] = useState("");
 
   async function refresh() {
     try {
@@ -38,11 +41,19 @@ export function ManageFeedbackPage() {
     refresh();
   }, []);
 
+  const filteredRows = useMemo(
+    () =>
+      pending.filter((item) =>
+        [item.word, item.comment, item.verdict].join(" ").toLowerCase().includes(search.toLowerCase())
+      ),
+    [pending, search]
+  );
+
   function toggleSelected(id) {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
   }
 
-  function selectAll() {
+  function selectAllInView() {
     setSelectedIds(filteredRows.map((item) => item.id));
   }
 
@@ -56,9 +67,7 @@ export function ManageFeedbackPage() {
         resolution,
         note,
       });
-      setMessage(
-        `Processed ${data.processed} item(s). Deactivated words: ${data.deactivated_words}.`
-      );
+      setMessage(`Processed ${data.processed} item(s). Deactivated words: ${data.deactivated_words}.`);
       setNote("");
       await refresh();
     } catch (err) {
@@ -68,10 +77,6 @@ export function ManageFeedbackPage() {
     }
   }
 
-  const filteredRows = pending.filter((item) =>
-    [item.word, item.comment, item.verdict].join(" ").toLowerCase().includes(commentFilter.toLowerCase())
-  );
-
   const columns = [
     columnHelper.display({
       id: "select",
@@ -80,12 +85,22 @@ export function ManageFeedbackPage() {
         <input
           type="checkbox"
           checked={selectedIds.includes(ctx.row.original.id)}
-          onChange={() => toggleSelected(ctx.row.original.id)}
+          onChange={(event) => {
+            event.stopPropagation();
+            toggleSelected(ctx.row.original.id);
+          }}
         />
       ),
     }),
     columnHelper.accessor("word", { header: "Word" }),
-    columnHelper.accessor("verdict", { header: "Verdict" }),
+    columnHelper.accessor("verdict", {
+      header: "Verdict",
+      cell: (ctx) => (
+        <span className={ctx.getValue() === "bad" ? "font-semibold text-red-700" : "font-semibold text-emerald-700"}>
+          {ctx.getValue()}
+        </span>
+      ),
+    }),
     columnHelper.accessor("comment", {
       header: "Comment",
       cell: (ctx) => ctx.getValue() || "-",
@@ -98,22 +113,32 @@ export function ManageFeedbackPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeader
+        title="Feedback Moderation"
+        description="Process playtest feedback and deactivate low-quality words when needed."
+        primaryAction={
+          <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>
+            Apply Resolution
+          </Button>
+        }
+        secondaryActions={
+          <>
+            <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
+          </>
+        }
+      />
+
       <ManageTabs active="feedback" />
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-fuchsia-100 via-rose-50 to-amber-100">
-          <CardTitle>Feedback Moderation</CardTitle>
-        </CardHeader>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card><CardContent className="pt-4 text-sm">Pending good: <strong>{counts.pending_good_count}</strong></CardContent></Card>
+        <Card><CardContent className="pt-4 text-sm">Pending bad: <strong>{counts.pending_bad_count}</strong></CardContent></Card>
+      </div>
+
+      <Card>
         <CardContent className="space-y-3 pt-4">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded border border-border bg-white p-3 text-sm">
-              Pending good: <strong>{counts.pending_good_count}</strong>
-            </div>
-            <div className="rounded border border-border bg-white p-3 text-sm">
-              Pending bad: <strong>{counts.pending_bad_count}</strong>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={selectAll}>Select All</Button>
+          <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter by word/comment/verdict" />
             <select
               className="h-9 rounded border border-input bg-white px-3 text-sm"
               value={resolution}
@@ -124,16 +149,24 @@ export function ManageFeedbackPage() {
               <option value="ignore">ignore</option>
             </select>
             <Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Moderator note" />
-            <Input value={commentFilter} onChange={(event) => setCommentFilter(event.target.value)} placeholder="Filter comment/word" />
-            <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>Apply to Selected</Button>
-            <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
           </div>
-          <DataTable columns={columns} data={filteredRows} emptyText="No pending feedback items." />
+
+          {!filteredRows.length ? (
+            <EmptyState title="No pending feedback items" description="Feedback queue is clear for current filters." />
+          ) : (
+            <DataTable columns={columns} data={filteredRows} density="compact" emptyText="No pending feedback items." />
+          )}
+
           <div className="rounded border border-border bg-muted p-3 text-xs">
-            {message || "Select rows and apply moderation action."}
+            {message || "Select feedback rows and apply moderation actions in bulk."}
           </div>
         </CardContent>
       </Card>
+
+      <BulkActionBar selectedCount={selectedIds.length}>
+        <Button size="sm" variant="outline" onClick={selectAllInView}>Select all in view</Button>
+        <Button size="sm" onClick={applyResolution} disabled={loading}>Apply resolution</Button>
+      </BulkActionBar>
     </div>
   );
 }
