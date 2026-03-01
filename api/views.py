@@ -568,7 +568,7 @@ class ManageQACandidatesView(APIView):
 
         queryset = (
             WordEntry.objects.filter(is_active=True)
-            .select_related("category", "collection")
+            .select_related("category")
             .order_by("id")
         )
 
@@ -582,17 +582,16 @@ class ManageQACandidatesView(APIView):
             if not missing_codes:
                 continue
             candidates.append(
-                {
-                    "id": word.id,
-                    "text": word.sanitized_text,
-                    "word_type": word.word_type,
-                    "category": word.category.name if word.category else "",
-                    "collection": word.collection.name if word.collection else "",
-                    "difficulty": word.difficulty,
-                    "missing_codes": missing_codes,
-                    "missing_summary": ", ".join(missing_codes),
-                }
-            )
+                    {
+                        "id": word.id,
+                        "text": word.sanitized_text,
+                        "word_type": word.word_type,
+                        "category": word.category.name if word.category else "",
+                        "difficulty": word.difficulty,
+                        "missing_codes": missing_codes,
+                        "missing_summary": ", ".join(missing_codes),
+                    }
+                )
 
         return Response(
             {

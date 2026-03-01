@@ -96,7 +96,6 @@ export function ManageQaPage() {
       meta: { filterVariant: "select", filterOptions: ["guessing", "describing"] },
     }),
     columnHelper.accessor("category", { header: "Category", meta: { filterVariant: "text" } }),
-    columnHelper.accessor("collection", { header: "Collection", meta: { filterVariant: "text" } }),
     columnHelper.accessor("difficulty", {
       header: "Difficulty",
       meta: { filterVariant: "select", filterOptions: ["", "easy", "medium", "hard"] },
