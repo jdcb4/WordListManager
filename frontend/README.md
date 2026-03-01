@@ -6,8 +6,10 @@ Implemented pages:
 
 1. Landing page (`/landing`)
 2. Feedback interface (`/feedback`)
-3. Management interface (`/manage`)
-   - Includes staging upload/review with field-by-field change previews
+3. Management overview (`/manage`)
+4. Management staging (`/manage/staging`)
+5. Management validation (`/manage/validation`)
+   - Staging includes upload/review with field-by-field change previews
 
 ## Run locally
 

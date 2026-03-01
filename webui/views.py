@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from io import StringIO
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.management import call_command
@@ -29,6 +30,19 @@ from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
 from words.services.staging import create_batch_from_upload, review_staged_word
+
+
+def _react_manage_redirect(request: HttpRequest, path: str) -> HttpResponse | None:
+    if not getattr(settings, "REACT_MANAGE_UI_ENABLED", False):
+        return None
+    base_url = getattr(settings, "REACT_UI_BASE_URL", "")
+    if not base_url:
+        return None
+    target = f"{base_url}{path}"
+    query_string = request.META.get("QUERY_STRING", "").strip()
+    if query_string:
+        target = f"{target}?{query_string}"
+    return redirect(target)
 
 
 def home(request):
@@ -70,6 +84,10 @@ def home(request):
 
 @login_required
 def manage_dashboard(request):
+    react_redirect = _react_manage_redirect(request, "/manage")
+    if react_redirect:
+        return react_redirect
+
     active_words = WordEntry.objects.filter(is_active=True)
     by_type = list(active_words.values("word_type").annotate(total=Count("id")).order_by("word_type"))
     by_collection = list(
@@ -179,6 +197,10 @@ def run_manage_check_deploy(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_validation(request: HttpRequest) -> HttpResponse:
+    react_redirect = _react_manage_redirect(request, "/manage/validation")
+    if react_redirect:
+        return react_redirect
+
     report = validate_wordlist()
     issues = report.get("issues", [])
     word_ids = sorted({issue["word_id"] for issue in issues if issue.get("word_id")})
@@ -422,6 +444,10 @@ def bulk_resolve_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def staging_dashboard(request: HttpRequest) -> HttpResponse:
+    react_redirect = _react_manage_redirect(request, "/manage/staging")
+    if react_redirect:
+        return react_redirect
+
     batches = ImportBatch.objects.all()[:30]
     pending_words = (
         StagedWord.objects.filter(status=StagedWordStatus.PENDING)

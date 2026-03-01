@@ -5,7 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost, apiPostForm } from "../lib/http";
 
-export function ManagePage() {
+export function ManagePage({ mode = "all" }) {
+  const showDashboard = mode === "all" || mode === "dashboard";
+  const showStaging = mode === "all" || mode === "staging";
+  const showValidation = mode === "all" || mode === "validation";
+  const showAi = mode === "all" || mode === "dashboard";
+
   const [dashboard, setDashboard] = useState(null);
   const [validation, setValidation] = useState(null);
   const [staging, setStaging] = useState({ total: 0, results: [], batches: [] });
@@ -29,19 +34,34 @@ export function ManagePage() {
   });
 
   async function refresh() {
-    const params = new URLSearchParams();
-    if (stagingFilters.status) params.set("status", stagingFilters.status);
-    if (stagingFilters.batch_id) params.set("batch_id", stagingFilters.batch_id);
-    params.set("limit", String(stagingFilters.limit || 200));
     try {
-      const [dashData, validationData, stagingData] = await Promise.all([
-        apiGet("/api/v1/manage/dashboard"),
-        apiGet("/api/v1/manage/validate"),
-        apiGet(`/api/v1/manage/staging?${params.toString()}`),
-      ]);
-      setDashboard(dashData);
-      setValidation(validationData);
-      setStaging(stagingData);
+      const tasks = [];
+      if (showDashboard) {
+        tasks.push(
+          apiGet("/api/v1/manage/dashboard").then((data) => {
+            setDashboard(data);
+          })
+        );
+      }
+      if (showValidation) {
+        tasks.push(
+          apiGet("/api/v1/manage/validate").then((data) => {
+            setValidation(data);
+          })
+        );
+      }
+      if (showStaging) {
+        const params = new URLSearchParams();
+        if (stagingFilters.status) params.set("status", stagingFilters.status);
+        if (stagingFilters.batch_id) params.set("batch_id", stagingFilters.batch_id);
+        params.set("limit", String(stagingFilters.limit || 200));
+        tasks.push(
+          apiGet(`/api/v1/manage/staging?${params.toString()}`).then((data) => {
+            setStaging(data);
+          })
+        );
+      }
+      await Promise.all(tasks);
       setSelectedIds([]);
       setSelectedStagedIds([]);
       setExpandedStagedRows([]);
@@ -52,7 +72,7 @@ export function ManagePage() {
 
   useEffect(() => {
     refresh();
-  }, [stagingFilters.status, stagingFilters.batch_id, stagingFilters.limit]);
+  }, [mode, stagingFilters.status, stagingFilters.batch_id, stagingFilters.limit]);
 
   async function runAction(action, payload = {}) {
     setLoading(true);
@@ -129,6 +149,7 @@ export function ManagePage() {
 
   return (
     <div className="space-y-4">
+      {showDashboard ? (
       <Card>
         <CardHeader>
           <CardTitle>Management (React Transition)</CardTitle>
@@ -153,7 +174,11 @@ export function ManagePage() {
           <div className="rounded border border-border bg-muted p-3 text-xs">{message || "No recent action output."}</div>
         </CardContent>
       </Card>
+      ) : (
+        <div className="rounded border border-border bg-muted p-3 text-xs">{message || "No recent action output."}</div>
+      )}
 
+      {showStaging ? (
       <Card>
         <CardHeader>
           <CardTitle>Staging Review (React Migration)</CardTitle>
@@ -301,7 +326,9 @@ export function ManagePage() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
+      {showAi ? (
       <Card>
         <CardHeader>
           <CardTitle>AI Actions</CardTitle>
@@ -335,7 +362,9 @@ export function ManagePage() {
           </Button>
         </CardContent>
       </Card>
+      ) : null}
 
+      {showValidation ? (
       <Card>
         <CardHeader>
           <CardTitle>Validation Issues</CardTitle>
@@ -383,6 +412,7 @@ export function ManagePage() {
           </div>
         </CardContent>
       </Card>
+      ) : null}
     </div>
   );
 }

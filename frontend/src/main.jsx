@@ -6,6 +6,8 @@ import "./index.css";
 import { LandingPage } from "./pages/LandingPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { ManagePage } from "./pages/ManagePage";
+import { ManageStagingPage } from "./pages/ManageStagingPage";
+import { ManageValidationPage } from "./pages/ManageValidationPage";
 
 function AppShell() {
   return (
@@ -16,6 +18,8 @@ function AppShell() {
           <Link className="rounded border border-border bg-white px-3 py-1" to="/landing">Landing</Link>
           <Link className="rounded border border-border bg-white px-3 py-1" to="/feedback">Feedback</Link>
           <Link className="rounded border border-border bg-white px-3 py-1" to="/manage">Manage</Link>
+          <Link className="rounded border border-border bg-white px-3 py-1" to="/manage/staging">Staging</Link>
+          <Link className="rounded border border-border bg-white px-3 py-1" to="/manage/validation">Validation</Link>
           <a className="rounded border border-border bg-white px-3 py-1" href="/manage/">Django UI</a>
         </nav>
       </header>
@@ -24,6 +28,8 @@ function AppShell() {
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/manage" element={<ManagePage />} />
+        <Route path="/manage/staging" element={<ManageStagingPage />} />
+        <Route path="/manage/validation" element={<ManageValidationPage />} />
       </Routes>
     </div>
   );

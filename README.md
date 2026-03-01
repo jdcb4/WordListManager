@@ -50,6 +50,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - Staging upload accepts CSV and JSON
   - `GET /manage/validation/` validation issue review and actioning
   - Bulk moderation actions for feedback and staging queues
+  - Optional React handoff for `/manage`, `/manage/staging`, `/manage/validation` via env flag
 - Rate limiting configured in DRF (`anon`, `user`, `exports` scopes).
 
 ## Local setup
@@ -160,6 +161,20 @@ Implemented React pages:
 2. Feedback page
 3. Management page
    - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
+4. Dedicated management routes:
+   - `/manage/staging`
+   - `/manage/validation`
+
+React handoff configuration (optional):
+
+- `REACT_MANAGE_UI_ENABLED=true`
+- `REACT_UI_BASE_URL=http://localhost:5173` (or your deployed React host)
+
+When enabled, Django staff routes redirect:
+
+- `/manage/` -> `${REACT_UI_BASE_URL}/manage`
+- `/manage/staging/` -> `${REACT_UI_BASE_URL}/manage/staging`
+- `/manage/validation/` -> `${REACT_UI_BASE_URL}/manage/validation`
 
 ## Deployment (Railway)
 
