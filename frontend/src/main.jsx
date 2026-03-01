@@ -8,6 +8,7 @@ import { FeedbackPage } from "./pages/FeedbackPage";
 import { ManagePage } from "./pages/ManagePage";
 import { ManageStagingPage } from "./pages/ManageStagingPage";
 import { ManageValidationPage } from "./pages/ManageValidationPage";
+import { ManageFeedbackPage } from "./pages/ManageFeedbackPage";
 
 function AppShell() {
   return (
@@ -20,16 +21,24 @@ function AppShell() {
           <Link className="rounded border border-border bg-white px-3 py-1" to="/manage">Manage</Link>
           <Link className="rounded border border-border bg-white px-3 py-1" to="/manage/staging">Staging</Link>
           <Link className="rounded border border-border bg-white px-3 py-1" to="/manage/validation">Validation</Link>
+          <Link className="rounded border border-border bg-white px-3 py-1" to="/manage/feedback">Feedback Mod</Link>
           <a className="rounded border border-border bg-white px-3 py-1" href="/manage/">Django UI</a>
         </nav>
       </header>
       <Routes>
         <Route path="/" element={<Navigate to="/landing" replace />} />
         <Route path="/landing" element={<LandingPage />} />
+        <Route path="/landing/" element={<LandingPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+        <Route path="/feedback/" element={<FeedbackPage />} />
         <Route path="/manage" element={<ManagePage />} />
+        <Route path="/manage/" element={<ManagePage />} />
         <Route path="/manage/staging" element={<ManageStagingPage />} />
+        <Route path="/manage/staging/" element={<ManageStagingPage />} />
         <Route path="/manage/validation" element={<ManageValidationPage />} />
+        <Route path="/manage/validation/" element={<ManageValidationPage />} />
+        <Route path="/manage/feedback" element={<ManageFeedbackPage />} />
+        <Route path="/manage/feedback/" element={<ManageFeedbackPage />} />
       </Routes>
     </div>
   );

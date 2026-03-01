@@ -162,6 +162,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / "staticfiles"
+_frontend_dist = BASE_DIR / "frontend" / "dist"
+STATICFILES_DIRS = [_frontend_dist] if _frontend_dist.exists() else []
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 LOGIN_URL = "/accounts/login/"

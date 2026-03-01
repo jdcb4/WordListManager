@@ -28,6 +28,8 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
     - `GET /api/v1/manage/dashboard`
     - `POST /api/v1/manage/publish`
     - `POST /api/v1/manage/dedupe`
+    - `GET /api/v1/manage/feedback/pending`
+    - `POST /api/v1/manage/feedback/resolve`
     - `GET /api/v1/manage/staging`
     - `POST /api/v1/manage/staging/upload`
     - `POST /api/v1/manage/staging/review`
@@ -164,17 +166,30 @@ Implemented React pages:
 4. Dedicated management routes:
    - `/manage/staging`
    - `/manage/validation`
+   - `/manage/feedback`
 
 React handoff configuration (optional):
 
 - `REACT_MANAGE_UI_ENABLED=true`
-- `REACT_UI_BASE_URL=http://localhost:5173` (or your deployed React host)
+- `REACT_UI_BASE_URL=http://localhost:5173` (optional; use only for separate-host frontend)
 
-When enabled, Django staff routes redirect:
+Single-host mode (recommended):
+
+- Set `REACT_MANAGE_UI_ENABLED=true`
+- Leave `REACT_UI_BASE_URL` blank
+- Django serves React shell directly on management routes.
+
+Separate-host mode:
+
+- Set both `REACT_MANAGE_UI_ENABLED=true` and `REACT_UI_BASE_URL=<frontend host>`
+- Django staff routes redirect to external React host.
+
+Separate-host route mapping:
 
 - `/manage/` -> `${REACT_UI_BASE_URL}/manage`
 - `/manage/staging/` -> `${REACT_UI_BASE_URL}/manage/staging`
 - `/manage/validation/` -> `${REACT_UI_BASE_URL}/manage/validation`
+- `/manage/feedback/` -> `${REACT_UI_BASE_URL}/manage/feedback`
 
 ## Deployment (Railway)
 

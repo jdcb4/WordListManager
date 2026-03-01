@@ -3,7 +3,16 @@ from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 
-from words.models import Category, DatasetVersion, FeedbackVerdict, StagedWordStatus, WordEntry, WordFeedback, WordType
+from words.models import (
+    Category,
+    DatasetVersion,
+    FeedbackResolution,
+    FeedbackVerdict,
+    StagedWordStatus,
+    WordEntry,
+    WordFeedback,
+    WordType,
+)
 from words.services.datasets import publish_dataset
 from words.services.staging import create_batch_from_csv
 
@@ -90,5 +99,42 @@ class ManageStagingApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, 201)
         self.assertIn("batch_id", response.data)
+
+
+class ManageFeedbackApiTests(APITestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username="admin_feedback_api",
+            password="password123",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=self.staff_user)
+
+    def test_pending_feedback_endpoint(self):
+        word = WordEntry.objects.create(text="Banana", word_type=WordType.DESCRIBING)
+        WordFeedback.objects.create(word=word, verdict=FeedbackVerdict.BAD, comment="too easy")
+        response = self.client.get("/api/v1/manage/feedback/pending")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["pending_bad_count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+
+    def test_resolve_feedback_endpoint(self):
+        word = WordEntry.objects.create(text="Shark", word_type=WordType.DESCRIBING)
+        feedback = WordFeedback.objects.create(word=word, verdict=FeedbackVerdict.BAD, comment="too hard")
+        response = self.client.post(
+            "/api/v1/manage/feedback/resolve",
+            data={
+                "feedback_ids": [feedback.id],
+                "resolution": FeedbackResolution.DEACTIVATE,
+                "note": "processed in test",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        feedback.refresh_from_db()
+        word.refresh_from_db()
+        self.assertTrue(feedback.is_processed)
+        self.assertEqual(feedback.resolution, FeedbackResolution.DEACTIVATE)
+        self.assertFalse(word.is_active)
 
 # Create your tests here.

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import Counter
 from io import StringIO
+from pathlib import Path
+import re
 
 from django.conf import settings
 from django.contrib import messages
@@ -45,6 +47,41 @@ def _react_manage_redirect(request: HttpRequest, path: str) -> HttpResponse | No
     return redirect(target)
 
 
+def _load_react_bundle() -> dict[str, str] | None:
+    dist_index = Path(settings.BASE_DIR) / "frontend" / "dist" / "index.html"
+    if not dist_index.exists():
+        return None
+    html = dist_index.read_text(encoding="utf-8")
+    css_match = re.search(r'href="/static/([^"]+\.css)"', html)
+    js_match = re.search(r'src="/static/([^"]+\.js)"', html)
+    if not css_match or not js_match:
+        return None
+    return {"css": css_match.group(1), "js": js_match.group(1)}
+
+
+def _react_manage_shell(request: HttpRequest, route: str) -> HttpResponse | None:
+    if not getattr(settings, "REACT_MANAGE_UI_ENABLED", False):
+        return None
+    external_redirect = _react_manage_redirect(request, route)
+    if external_redirect:
+        return external_redirect
+    bundle = _load_react_bundle()
+    if not bundle:
+        messages.error(
+            request,
+            "React UI is enabled but build assets were not found. Falling back to Django view.",
+        )
+        return None
+    return render(
+        request,
+        "webui/react_shell.html",
+        {
+            "react_css_asset": bundle["css"],
+            "react_js_asset": bundle["js"],
+        },
+    )
+
+
 def home(request):
     queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
 
@@ -84,9 +121,9 @@ def home(request):
 
 @login_required
 def manage_dashboard(request):
-    react_redirect = _react_manage_redirect(request, "/manage")
-    if react_redirect:
-        return react_redirect
+    react_shell = _react_manage_shell(request, "/manage")
+    if react_shell:
+        return react_shell
 
     active_words = WordEntry.objects.filter(is_active=True)
     by_type = list(active_words.values("word_type").annotate(total=Count("id")).order_by("word_type"))
@@ -197,9 +234,9 @@ def run_manage_check_deploy(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_validation(request: HttpRequest) -> HttpResponse:
-    react_redirect = _react_manage_redirect(request, "/manage/validation")
-    if react_redirect:
-        return react_redirect
+    react_shell = _react_manage_shell(request, "/manage/validation")
+    if react_shell:
+        return react_shell
 
     report = validate_wordlist()
     issues = report.get("issues", [])
@@ -371,6 +408,10 @@ def submit_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_feedback(request: HttpRequest) -> HttpResponse:
+    react_shell = _react_manage_shell(request, "/manage/feedback")
+    if react_shell:
+        return react_shell
+
     pending_bad = (
         WordFeedback.objects.filter(
             verdict=FeedbackVerdict.BAD,
@@ -444,9 +485,9 @@ def bulk_resolve_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def staging_dashboard(request: HttpRequest) -> HttpResponse:
-    react_redirect = _react_manage_redirect(request, "/manage/staging")
-    if react_redirect:
-        return react_redirect
+    react_shell = _react_manage_shell(request, "/manage/staging")
+    if react_shell:
+        return react_shell
 
     batches = ImportBatch.objects.all()[:30]
     pending_words = (

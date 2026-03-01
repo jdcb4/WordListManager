@@ -108,3 +108,9 @@ class ManagementBulkActionTests(TestCase):
         response = self.client.get("/manage/validation/")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "http://localhost:5173/manage/validation")
+
+    @override_settings(REACT_MANAGE_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_manage_feedback_redirects_to_react_when_enabled(self):
+        response = self.client.get("/manage/feedback/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/manage/feedback")

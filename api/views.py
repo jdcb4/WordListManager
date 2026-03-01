@@ -20,6 +20,8 @@ from api.serializers import (
 from words.models import (
     DatasetVersion,
     ExportFormat,
+    FeedbackResolution,
+    FeedbackVerdict,
     ImportBatch,
     StagedWord,
     StagedWordStatus,
@@ -416,6 +418,79 @@ class ManageDashboardView(APIView):
                     .annotate(total=Count("id"))
                     .order_by("word_type")
                 ),
+            }
+        )
+
+
+class ManageFeedbackPendingView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        pending = (
+            WordFeedback.objects.filter(is_processed=False)
+            .select_related("word")
+            .order_by("-created_at")
+        )
+        pending_bad = pending.filter(verdict=FeedbackVerdict.BAD)[:300]
+        verdict_totals = dict(
+            pending.values("verdict")
+            .annotate(total=Count("id"))
+            .values_list("verdict", "total")
+        )
+        return Response(
+            {
+                "pending_good_count": verdict_totals.get(FeedbackVerdict.GOOD, 0),
+                "pending_bad_count": verdict_totals.get(FeedbackVerdict.BAD, 0),
+                "results": [
+                    {
+                        "id": row.id,
+                        "word_id": row.word_id,
+                        "word": row.word.sanitized_text,
+                        "verdict": row.verdict,
+                        "comment": row.comment,
+                        "created_at": row.created_at,
+                    }
+                    for row in pending_bad
+                ],
+            }
+        )
+
+
+class ManageFeedbackResolveView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        resolution = str(request.data.get("resolution", "")).strip().lower()
+        note = str(request.data.get("note", "")).strip()
+        feedback_ids = _coerce_id_list(
+            request.data.get("feedback_ids", request.data.get("feedback_id", []))
+        )
+        if resolution not in {
+            FeedbackResolution.KEEP,
+            FeedbackResolution.DEACTIVATE,
+            FeedbackResolution.IGNORE,
+        }:
+            return Response({"detail": "Invalid resolution."}, status=status.HTTP_400_BAD_REQUEST)
+        if not feedback_ids:
+            return Response({"detail": "No feedback IDs provided."}, status=status.HTTP_400_BAD_REQUEST)
+        queryset = WordFeedback.objects.select_related("word").filter(
+            id__in=feedback_ids,
+            is_processed=False,
+        )
+        processed = 0
+        deactivated = 0
+        for feedback in queryset:
+            if resolution == FeedbackResolution.DEACTIVATE and feedback.word.is_active:
+                feedback.word.is_active = False
+                feedback.word.save(update_fields=["is_active", "updated_at"])
+                deactivated += 1
+            feedback.mark_processed(by_user=request.user, resolution=resolution, note=note)
+            processed += 1
+        return Response(
+            {
+                "processed": processed,
+                "deactivated_words": deactivated,
+                "resolution": resolution,
             }
         )
 

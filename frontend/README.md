@@ -9,7 +9,16 @@ Implemented pages:
 3. Management overview (`/manage`)
 4. Management staging (`/manage/staging`)
 5. Management validation (`/manage/validation`)
+6. Management feedback moderation (`/manage/feedback`)
    - Staging includes upload/review with field-by-field change previews
+
+## Single-host deployment
+
+Recommended production setup is to serve React from the same Django host:
+
+1. Docker builds `frontend/dist`.
+2. Django serves management routes with a React shell.
+3. API calls stay relative (`/api/...`) and share session/CSRF cookies.
 
 ## Run locally
 
