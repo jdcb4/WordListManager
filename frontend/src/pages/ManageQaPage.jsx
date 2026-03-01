@@ -15,7 +15,7 @@ import { apiGet, apiPost } from "../lib/http";
 const columnHelper = createColumnHelper();
 
 export function ManageQaPage() {
-  const [validation, setValidation] = useState(null);
+  const [qaCandidates, setQaCandidates] = useState({ count: 0, results: [], generated_at_utc: null });
   const [scope, setScope] = useState("all_missing");
   const [selectedWordIds, setSelectedWordIds] = useState([]);
   const [model, setModel] = useState("google/gemini-2.5-flash-lite");
@@ -26,8 +26,8 @@ export function ManageQaPage() {
 
   async function refresh() {
     try {
-      const data = await apiGet("/api/v1/manage/validate");
-      setValidation(data);
+      const data = await apiGet("/api/v1/manage/qa/candidates?limit=2000");
+      setQaCandidates(data);
       setSelectedWordIds([]);
     } catch (err) {
       setMessage(String(err));
@@ -38,31 +38,7 @@ export function ManageQaPage() {
     refresh();
   }, []);
 
-  const candidateRows = useMemo(() => {
-    const issues = validation?.issues || [];
-    const targetCodes = new Set(["missing_hint", "missing_collection", "missing_category"]);
-    const byWord = new Map();
-    for (const issue of issues) {
-      if (!targetCodes.has(issue.code) || !issue.word || !issue.word_id) continue;
-      if (!byWord.has(issue.word_id)) {
-        byWord.set(issue.word_id, {
-          id: issue.word_id,
-          text: issue.word.text,
-          word_type: issue.word.word_type,
-          category: issue.word.category || "",
-          collection: issue.word.collection || "",
-          difficulty: issue.word.difficulty || "",
-          missing_codes: [],
-        });
-      }
-      byWord.get(issue.word_id).missing_codes.push(issue.code);
-    }
-    return Array.from(byWord.values()).map((row) => ({
-      ...row,
-      missing_codes: Array.from(new Set(row.missing_codes)),
-      missing_summary: Array.from(new Set(row.missing_codes)).join(", "),
-    }));
-  }, [validation]);
+  const candidateRows = useMemo(() => qaCandidates?.results || [], [qaCandidates]);
 
   function toggleSelected(id) {
     setSelectedWordIds((prev) =>
@@ -74,7 +50,8 @@ export function ManageQaPage() {
     setSelectedWordIds(candidateRows.map((row) => row.id));
   }
 
-  const estimatedCount = scope === "selected_words" ? selectedWordIds.length : candidateRows.length;
+  const estimatedCount =
+    scope === "selected_words" ? selectedWordIds.length : qaCandidates?.count || 0;
 
   async function runCompleteMissing() {
     setLoading(true);
@@ -144,7 +121,7 @@ export function ManageQaPage() {
         secondaryActions={
           <>
             <Button variant="outline" onClick={refresh} disabled={loading}>
-              Refresh
+              Recompute Rules
             </Button>
             <a
               className="inline-flex h-9 items-center rounded-md border border-border bg-white px-4 text-sm"
@@ -185,7 +162,7 @@ export function ManageQaPage() {
           {!candidateRows.length ? (
             <EmptyState
               title="No missing-field candidates"
-              description="No words currently match missing hint/category/collection rules."
+              description="No active words currently match missing hint/difficulty rules."
             />
           ) : (
             <DataTable
@@ -198,7 +175,10 @@ export function ManageQaPage() {
           )}
 
           <div className="rounded-md border border-border bg-muted p-3 text-xs">
-            {message || "For selected mode, choose rows in the table then run complete missing."}
+            {message ||
+              `For selected mode, choose rows in the table then run complete missing. Last recompute: ${
+                qaCandidates?.generated_at_utc ? new Date(qaCandidates.generated_at_utc).toLocaleString() : "-"
+              }.`}
           </div>
         </CardContent>
       </Card>

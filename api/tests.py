@@ -145,4 +145,30 @@ class ManageFeedbackApiTests(APITestCase):
         self.assertEqual(feedback.resolution, FeedbackResolution.DEACTIVATE)
         self.assertFalse(word.is_active)
 
+
+class ManageQaCandidatesApiTests(APITestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username="admin_qa_api",
+            password="password123",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=self.staff_user)
+
+    def test_manage_qa_candidates_includes_missing_hint_and_difficulty(self):
+        who, _ = Category.objects.get_or_create(name="Who")
+        WordEntry.objects.create(
+            text="Ada Lovelace",
+            word_type=WordType.GUESSING,
+            category=who,
+            hint="",
+            difficulty="",
+        )
+        response = self.client.get("/api/v1/manage/qa/candidates?limit=100")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 1)
+        row = response.data["results"][0]
+        self.assertIn("missing_hint", row["missing_codes"])
+        self.assertIn("missing_difficulty", row["missing_codes"])
+
 # Create your tests here.

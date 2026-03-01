@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from django.db.models import Count, Q
@@ -553,6 +554,55 @@ class ManageValidateView(APIView):
             )
         report["issues"] = enriched
         return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageQACandidatesView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get("limit", 2000))
+        except (TypeError, ValueError):
+            limit = 2000
+        limit = max(1, min(limit, 5000))
+
+        queryset = (
+            WordEntry.objects.filter(is_active=True)
+            .select_related("category", "collection")
+            .order_by("id")
+        )
+
+        candidates = []
+        for word in queryset.iterator():
+            missing_codes = []
+            if not _as_text(word.hint):
+                missing_codes.append("missing_hint")
+            if not _as_text(word.difficulty):
+                missing_codes.append("missing_difficulty")
+            if not missing_codes:
+                continue
+            candidates.append(
+                {
+                    "id": word.id,
+                    "text": word.sanitized_text,
+                    "word_type": word.word_type,
+                    "category": word.category.name if word.category else "",
+                    "collection": word.collection.name if word.collection else "",
+                    "difficulty": word.difficulty,
+                    "missing_codes": missing_codes,
+                    "missing_summary": ", ".join(missing_codes),
+                }
+            )
+
+        return Response(
+            {
+                "count": len(candidates),
+                "limit": limit,
+                "results": candidates[:limit],
+                "generated_at_utc": datetime.now(tz=timezone.utc).isoformat(),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class ManageValidationActionView(APIView):
