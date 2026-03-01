@@ -1,9 +1,11 @@
 import {
+  getFilteredRowModel,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { Fragment, useState } from "react";
 
 import { cn } from "../../lib/utils";
 
@@ -21,20 +23,26 @@ export function DataTable({
   getRowId,
   onRowClick,
   rowClassName,
+  enableColumnFilters = false,
 }) {
+  const [columnFilters, setColumnFilters] = useState([]);
+
   const table = useReactTable({
     data,
     columns,
     state: {
       ...(sorting ? { sorting } : {}),
       ...(columnVisibility ? { columnVisibility } : {}),
+      ...(enableColumnFilters ? { columnFilters } : {}),
     },
     onSortingChange,
     onColumnVisibilityChange,
+    onColumnFiltersChange: enableColumnFilters ? setColumnFilters : undefined,
     manualSorting,
     getRowId,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
+    getFilteredRowModel: enableColumnFilters ? getFilteredRowModel() : undefined,
   });
 
   const cellPadding = density === "compact" ? "px-2 py-1.5" : "px-3 py-2.5";
@@ -45,15 +53,61 @@ export function DataTable({
       <table className="min-w-full text-sm">
         <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th key={header.id} className={cn(headerPadding, "text-left align-top font-semibold")}>
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
+            <Fragment key={headerGroup.id}>
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} className={cn(headerPadding, "text-left align-top font-semibold")}>
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+              {enableColumnFilters ? (
+                <tr key={`${headerGroup.id}-filters`} className="border-t border-border bg-muted/70">
+                  {headerGroup.headers.map((header) => {
+                    const meta = header.column.columnDef.meta || {};
+                    const filterVariant = meta.filterVariant || "text";
+                    const filterOptions = meta.filterOptions || [];
+                    const isFilterable = Boolean(meta.filterVariant);
+                    if (!header.column.getCanFilter() || !isFilterable) {
+                      return <th key={`${header.id}-filter`} className={cn(headerPadding, "text-left")} />;
+                    }
+                    if (filterVariant === "select") {
+                      return (
+                        <th key={`${header.id}-filter`} className={cn(headerPadding, "text-left")}>
+                          <select
+                            className="h-8 w-full rounded border border-input bg-white px-2 text-xs"
+                            value={header.column.getFilterValue() ?? ""}
+                            onChange={(event) =>
+                              header.column.setFilterValue(event.target.value || undefined)
+                            }
+                          >
+                            <option value="">All</option>
+                            {filterOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </th>
+                      );
+                    }
+                    return (
+                      <th key={`${header.id}-filter`} className={cn(headerPadding, "text-left")}>
+                        <input
+                          type="text"
+                          className="h-8 w-full rounded border border-input bg-white px-2 text-xs"
+                          value={header.column.getFilterValue() ?? ""}
+                          onChange={(event) => header.column.setFilterValue(event.target.value)}
+                          placeholder="Filter..."
+                        />
+                      </th>
+                    );
+                  })}
+                </tr>
+              ) : null}
+            </Fragment>
           ))}
         </thead>
         <tbody>

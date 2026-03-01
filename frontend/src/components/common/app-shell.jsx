@@ -10,8 +10,9 @@ const navGroups = [
   {
     label: "Ingest",
     items: [
+      { label: "Ingestion", to: "/manage/ingestion" },
       { label: "Staging", to: "/manage/staging" },
-      { label: "AI Tools", to: "/manage/ai" },
+      { label: "QA Tools", to: "/manage/qa" },
     ],
   },
   {

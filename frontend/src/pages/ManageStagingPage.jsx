@@ -11,7 +11,7 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
-import { apiGet, apiPost, apiPostForm } from "../lib/http";
+import { apiGet, apiPost } from "../lib/http";
 
 const columnHelper = createColumnHelper();
 
@@ -19,11 +19,8 @@ export function ManageStagingPage() {
   const [staging, setStaging] = useState({ total: 0, results: [], batches: [] });
   const [stagingFilters, setStagingFilters] = useState({ status: "pending", batch_id: "", limit: 200 });
   const [selectedStagedIds, setSelectedStagedIds] = useState([]);
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadNote, setUploadNote] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [activeStagedId, setActiveStagedId] = useState(null);
 
   const rows = staging?.results || [];
@@ -38,7 +35,9 @@ export function ManageStagingPage() {
       const data = await apiGet(`/api/v1/manage/staging?${params.toString()}`);
       setStaging(data);
       setSelectedStagedIds([]);
-      setActiveStagedId(data.results?.[0]?.id || null);
+      setActiveStagedId((current) =>
+        data.results?.some((row) => row.id === current) ? current : null
+      );
     } catch (err) {
       setMessage(String(err));
     }
@@ -119,30 +118,6 @@ export function ManageStagingPage() {
     }
   }
 
-  async function uploadStagingFile(event) {
-    event.preventDefault();
-    if (!uploadFile) {
-      setMessage("Choose a CSV or JSON file to upload.");
-      return;
-    }
-    setUploading(true);
-    setMessage("");
-    try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("note", uploadNote);
-      const result = await apiPostForm("/api/v1/manage/staging/upload", formData);
-      setMessage(`Uploaded batch #${result.batch_id} (${result.total_rows} rows).`);
-      setUploadFile(null);
-      setUploadNote("");
-      await refresh();
-    } catch (err) {
-      setMessage(String(err));
-    } finally {
-      setUploading(false);
-    }
-  }
-
   const columns = [
     columnHelper.display({
       id: "select",
@@ -161,6 +136,7 @@ export function ManageStagingPage() {
     columnHelper.accessor("word", {
       id: "word",
       header: "Word",
+      meta: { filterVariant: "text" },
       cell: (ctx) => (
         <div>
           <div className="font-semibold">{ctx.row.original.word}</div>
@@ -170,19 +146,24 @@ export function ManageStagingPage() {
         </div>
       ),
     }),
-    columnHelper.display({
+    columnHelper.accessor((row) => (row.preview.is_new ? "Create (New)" : "Update"), {
       id: "change_type",
       header: "Change",
+      meta: { filterVariant: "select", filterOptions: ["Create (New)", "Update"] },
       cell: (ctx) => {
         const preview = ctx.row.original.preview;
         if (preview.is_new) return <Badge className="bg-emerald-100 text-emerald-800">Create (New)</Badge>;
         return <Badge className="bg-amber-100 text-amber-800">Update ({preview.changed_fields.length} changes)</Badge>;
       },
     }),
-    columnHelper.display({
+    columnHelper.accessor((row) => `#${row.batch.id}`, {
       id: "batch",
       header: "Batch",
-      cell: (ctx) => `#${ctx.row.original.batch.id}`,
+      meta: {
+        filterVariant: "select",
+        filterOptions: Array.from(new Set(rows.map((row) => `#${row.batch.id}`))),
+      },
+      cell: (ctx) => ctx.getValue(),
     }),
     columnHelper.accessor("created_at", {
       id: "created_at",
@@ -215,16 +196,9 @@ export function ManageStagingPage() {
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" onSubmit={uploadStagingFile}>
-            <input
-              type="file"
-              accept=".csv,.json"
-              onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
-              className="h-9 rounded border border-input bg-white px-2 text-sm"
-            />
-            <Input value={uploadNote} onChange={(event) => setUploadNote(event.target.value)} placeholder="Upload note" />
-            <Button type="submit" disabled={uploading}>{uploading ? "Uploading..." : "Upload to Staging"}</Button>
-          </form>
+          <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+            Ingestion is managed in the Ingestion tab. This tab is review + decision only.
+          </div>
 
           <div className="flex flex-wrap gap-2">
             {["pending", "approved", "rejected", ""].map((status) => (
@@ -268,6 +242,7 @@ export function ManageStagingPage() {
               columns={columns}
               data={rows}
               density="compact"
+              enableColumnFilters
               rowClassName={(row) => (row.id === activeStagedId ? "bg-sky-50" : "")}
               onRowClick={(row) => setActiveStagedId(row.id)}
             />

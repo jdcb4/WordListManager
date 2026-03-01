@@ -7,10 +7,11 @@ Implemented pages:
 1. Landing page (`/`, `/landing`)
 2. Feedback interface (`/feedback`, `/feedback/swipe`)
 3. Management overview (`/manage`)
-4. Management AI tools (`/manage/ai`)
+4. Management ingestion (`/manage/ingestion`)
 5. Management staging (`/manage/staging`)
-6. Management validation (`/manage/validation`)
-7. Management feedback moderation (`/manage/feedback`)
+6. Management QA tools (`/manage/qa`, legacy alias `/manage/ai`)
+7. Management validation (`/manage/validation`)
+8. Management feedback moderation (`/manage/feedback`)
    - Staging includes queue workflow, field-by-field change drawer, and shortcuts (`J/K`, `A`, `R`)
 
 Shared UX primitives now used across pages:

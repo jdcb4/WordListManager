@@ -169,6 +169,22 @@ def manage_ai(request):
     return redirect("manage-dashboard")
 
 
+@login_required
+def manage_ingestion(request):
+    react_shell = _react_shell(request, "/manage/ingestion", manage_scope=True)
+    if react_shell:
+        return react_shell
+    return redirect("manage-dashboard")
+
+
+@login_required
+def manage_qa(request):
+    react_shell = _react_shell(request, "/manage/qa", manage_scope=True)
+    if react_shell:
+        return react_shell
+    return redirect("manage-dashboard")
+
+
 def _command_output(command_name: str, **kwargs) -> tuple[bool, str]:
     stdout = StringIO()
     try:

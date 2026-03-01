@@ -4,8 +4,9 @@ import { cn } from "../../lib/utils";
 
 const tabs = [
   { label: "Overview", href: "/manage", key: "overview" },
+  { label: "Ingestion", href: "/manage/ingestion", key: "ingestion" },
   { label: "Staging", href: "/manage/staging", key: "staging" },
-  { label: "AI", href: "/manage/ai", key: "ai" },
+  { label: "QA", href: "/manage/qa", key: "qa" },
   { label: "Validation", href: "/manage/validation", key: "validation" },
   { label: "Feedback", href: "/manage/feedback", key: "feedback" },
 ];

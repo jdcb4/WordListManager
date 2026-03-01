@@ -92,9 +92,10 @@ export function ManageFeedbackPage() {
         />
       ),
     }),
-    columnHelper.accessor("word", { header: "Word" }),
+    columnHelper.accessor("word", { header: "Word", meta: { filterVariant: "text" } }),
     columnHelper.accessor("verdict", {
       header: "Verdict",
+      meta: { filterVariant: "select", filterOptions: ["good", "bad"] },
       cell: (ctx) => (
         <span className={ctx.getValue() === "bad" ? "font-semibold text-red-700" : "font-semibold text-emerald-700"}>
           {ctx.getValue()}
@@ -154,7 +155,13 @@ export function ManageFeedbackPage() {
           {!filteredRows.length ? (
             <EmptyState title="No pending feedback items" description="Feedback queue is clear for current filters." />
           ) : (
-            <DataTable columns={columns} data={filteredRows} density="compact" emptyText="No pending feedback items." />
+            <DataTable
+              columns={columns}
+              data={filteredRows}
+              density="compact"
+              enableColumnFilters
+              emptyText="No pending feedback items."
+            />
           )}
 
           <div className="rounded border border-border bg-muted p-3 text-xs">

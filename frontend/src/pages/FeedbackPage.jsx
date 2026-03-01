@@ -7,30 +7,55 @@ import { Card, CardContent } from "../components/ui/card";
 import { apiGet, apiPost } from "../lib/http";
 
 const SWIPE_THRESHOLD = 110;
+const PREFETCH_BATCH_SIZE = 20;
+const PREFETCH_LOW_WATERMARK = 5;
 
 export function FeedbackPage() {
-  const [word, setWord] = useState(null);
+  const [queue, setQueue] = useState([]);
   const [status, setStatus] = useState("Loading...");
   const [dragX, setDragX] = useState(0);
   const [votes, setVotes] = useState(0);
+  const [prefetching, setPrefetching] = useState(false);
   const dragStartRef = useRef(null);
+  const prefetchRef = useRef(false);
 
-  const loadWord = useCallback(async () => {
-    setStatus("Loading next word...");
+  const refillQueue = useCallback(async () => {
+    if (prefetchRef.current) return;
+    prefetchRef.current = true;
+    setPrefetching(true);
     try {
-      const data = await apiGet("/api/v1/words/random?count=1");
-      const nextWord = (data.results || [])[0] || null;
-      setWord(nextWord);
-      setStatus(nextWord ? "Swipe right for good, left for bad." : "No active words.");
-      setDragX(0);
+      const data = await apiGet(`/api/v1/words/random?count=${PREFETCH_BATCH_SIZE}`);
+      const nextRows = Array.isArray(data.results) ? data.results : [];
+      setQueue((prev) => {
+        const existing = new Set(prev.map((row) => row.id));
+        const deduped = nextRows.filter((row) => row && !existing.has(row.id));
+        return [...prev, ...deduped];
+      });
+      setStatus("Swipe right for good, left for bad.");
     } catch (err) {
       setStatus(String(err));
+    } finally {
+      prefetchRef.current = false;
+      setPrefetching(false);
     }
   }, []);
 
   useEffect(() => {
-    loadWord();
-  }, [loadWord]);
+    refillQueue();
+  }, [refillQueue]);
+
+  useEffect(() => {
+    if (queue.length === 0) {
+      setStatus("Loading word cache...");
+      refillQueue();
+      return;
+    }
+    if (queue.length <= PREFETCH_LOW_WATERMARK) {
+      refillQueue();
+    }
+  }, [queue.length, refillQueue]);
+
+  const word = queue[0] || null;
 
   async function submit(verdict) {
     if (!word) return;
@@ -39,7 +64,8 @@ export function FeedbackPage() {
       await apiPost("/api/v1/feedback", { word: word.id, verdict, comment: "" });
       setVotes((prev) => prev + 1);
       setStatus(verdict === "good" ? "Marked good." : "Marked bad.");
-      await loadWord();
+      setQueue((prev) => prev.slice(1));
+      setDragX(0);
     } catch (err) {
       setStatus(String(err));
     }
@@ -84,7 +110,13 @@ export function FeedbackPage() {
       <PageHeader
         title="Swipe Feedback"
         description="Quick playtest loop for quality signals. Keyboard: left and right arrows."
-        secondaryActions={<Badge className="py-1 text-sm">Session votes: {votes}</Badge>}
+        secondaryActions={
+          <>
+            <Badge className="py-1 text-sm">Session votes: {votes}</Badge>
+            <Badge className="py-1 text-sm">Cache: {queue.length}</Badge>
+            {prefetching ? <Badge className="py-1 text-sm">Prefetching...</Badge> : null}
+          </>
+        }
       />
 
       <Card className="overflow-hidden">

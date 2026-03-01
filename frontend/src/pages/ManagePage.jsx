@@ -101,7 +101,7 @@ export function ManagePage() {
             <div className="rounded-lg border border-border bg-muted px-3 py-2">Playtest</div>
           </div>
           <div className="rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">
-            {message || "Use tabs to manage staging, AI generation, validation queues, and feedback moderation."}
+            {message || "Use tabs for ingestion, staging review, QA completion, validation queues, and feedback moderation."}
           </div>
         </CardContent>
       </Card>

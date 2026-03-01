@@ -7,10 +7,12 @@ import { AppShell } from "./components/common/app-shell";
 import { LandingPage } from "./pages/LandingPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
 import { ManagePage } from "./pages/ManagePage";
+import { ManageIngestionPage } from "./pages/ManageIngestionPage";
 import { ManageStagingPage } from "./pages/ManageStagingPage";
 import { ManageValidationPage } from "./pages/ManageValidationPage";
 import { ManageFeedbackPage } from "./pages/ManageFeedbackPage";
 import { ManageAiPage } from "./pages/ManageAiPage";
+import { ManageQaPage } from "./pages/ManageQaPage";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -26,8 +28,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/feedback/swipe/" element={<FeedbackPage />} />
           <Route path="/manage" element={<ManagePage />} />
           <Route path="/manage/" element={<ManagePage />} />
+          <Route path="/manage/ingestion" element={<ManageIngestionPage />} />
+          <Route path="/manage/ingestion/" element={<ManageIngestionPage />} />
           <Route path="/manage/staging" element={<ManageStagingPage />} />
           <Route path="/manage/staging/" element={<ManageStagingPage />} />
+          <Route path="/manage/qa" element={<ManageQaPage />} />
+          <Route path="/manage/qa/" element={<ManageQaPage />} />
           <Route path="/manage/validation" element={<ManageValidationPage />} />
           <Route path="/manage/validation/" element={<ManageValidationPage />} />
           <Route path="/manage/ai" element={<ManageAiPage />} />

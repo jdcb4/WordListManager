@@ -41,7 +41,9 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - `GET /` React landing page (word browse/filter/download)
   - `GET /feedback/` React feedback swipe UI
   - `GET /manage/` React management overview (authenticated staff)
-  - `GET /manage/ai/` React AI workflow
+  - `GET /manage/ingestion/` React ingestion workflow (upload + AI generation)
+  - `GET /manage/qa/` React QA workflow (complete missing fields)
+  - `GET /manage/ai/` legacy alias to QA workflow
   - `GET /manage/staging/` React staging workflow
   - `GET /manage/validation/` React validation workflow
   - `GET /manage/feedback/` React moderation workflow
@@ -143,7 +145,7 @@ Functions:
 
 3. Complete Missing now stages AI suggestions first (does not directly update production words).
    - Review and approve in staging like other uploads.
-   - You can run it globally, by selected word IDs in AI tools, or on selected words in validation UI.
+   - You can run it globally, from a selectable QA table, or on selected words in validation UI.
 
 ## UI modernization plan
 
@@ -168,7 +170,8 @@ Implemented React pages:
 3. Management page (`/manage`)
    - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
 4. Dedicated management routes:
-   - `/manage/ai`
+   - `/manage/ingestion`
+   - `/manage/qa` (legacy alias `/manage/ai`)
    - `/manage/staging`
    - `/manage/validation`
    - `/manage/feedback`
@@ -196,6 +199,8 @@ Separate-host route mapping:
 - `/` -> `${REACT_UI_BASE_URL}/`
 - `/feedback/` -> `${REACT_UI_BASE_URL}/feedback`
 - `/manage/` -> `${REACT_UI_BASE_URL}/manage`
+- `/manage/ingestion/` -> `${REACT_UI_BASE_URL}/manage/ingestion`
+- `/manage/qa/` -> `${REACT_UI_BASE_URL}/manage/qa`
 - `/manage/ai/` -> `${REACT_UI_BASE_URL}/manage/ai`
 - `/manage/staging/` -> `${REACT_UI_BASE_URL}/manage/staging`
 - `/manage/validation/` -> `${REACT_UI_BASE_URL}/manage/validation`

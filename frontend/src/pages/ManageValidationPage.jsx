@@ -89,13 +89,14 @@ export function ManageValidationPage() {
     }),
     columnHelper.accessor("severity", {
       header: "Severity",
+      meta: { filterVariant: "select", filterOptions: ["error", "warning"] },
       cell: (ctx) => (
         <span className={ctx.getValue() === "error" ? "text-red-700 font-semibold" : "text-amber-700 font-semibold"}>
           {ctx.getValue()}
         </span>
       ),
     }),
-    columnHelper.accessor("code", { header: "Code" }),
+    columnHelper.accessor("code", { header: "Code", meta: { filterVariant: "text" } }),
     columnHelper.display({
       id: "word",
       header: "Word",
@@ -165,6 +166,7 @@ export function ManageValidationPage() {
               columns={columns}
               data={filteredIssues.slice(0, 1000)}
               density="compact"
+              enableColumnFilters
               onRowClick={setActiveIssue}
               rowClassName={(row) => (activeIssue?.code === row.code && activeIssue?.word_id === row.word_id ? "bg-sky-50" : "")}
               emptyText="No validation issues found."
