@@ -38,21 +38,20 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
     - `POST /api/v1/manage/ai/complete`
     - `POST /api/v1/manage/ai/generate`
 - Web UI:
-  - `GET /` browse/filter words + download links
-  - `GET /manage/` authenticated management dashboard
+  - `GET /` React landing page (word browse/filter/download)
+  - `GET /feedback/` React feedback swipe UI
+  - `GET /manage/` React management overview (authenticated staff)
+  - `GET /manage/staging/` React staging workflow
+  - `GET /manage/validation/` React validation workflow
+  - `GET /manage/feedback/` React moderation workflow
+  - Django Admin remains at `GET /admin/`
   - Staff one-click publish action from dashboard
   - Dashboard actions for import, dedupe, validate, deploy config check
   - Dashboard AI actions:
     - Complete missing hint/difficulty fields
     - Generate words into staging
-  - `GET /feedback/` mobile-friendly feedback capture
-  - `GET /feedback/swipe/` Tinder-like swipe feedback capture
-  - `GET /manage/feedback/` feedback review queue
-  - `GET /manage/staging/` upload and review staged words
-  - Staging upload accepts CSV and JSON
-  - `GET /manage/validation/` validation issue review and actioning
   - Bulk moderation actions for feedback and staging queues
-  - Optional React handoff for `/manage`, `/manage/staging`, `/manage/validation` via env flag
+  - Legacy Django templates remain as fallback only if React UI is disabled or bundle assets are missing
 - Rate limiting configured in DRF (`anon`, `user`, `exports` scopes).
 
 ## Local setup
@@ -153,39 +152,43 @@ See [ui-modernization-plan.md](docs/ui-modernization-plan.md) for a non-implemen
 - Hybrid React migration path
 - Full React SPA path
 
-## React transition (started)
+## React transition
 
 Initial React + Tailwind + shadcn-style frontend scaffold lives in [frontend/README.md](frontend/README.md).
 
 Implemented React pages:
 
-1. Landing page
-2. Feedback page
-3. Management page
+1. Landing page (`/`, `/landing`)
+2. Feedback page (`/feedback`, `/feedback/swipe`)
+3. Management page (`/manage`)
    - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
 4. Dedicated management routes:
    - `/manage/staging`
    - `/manage/validation`
    - `/manage/feedback`
 
-React handoff configuration (optional):
+React handoff configuration:
 
-- `REACT_MANAGE_UI_ENABLED=true`
-- `REACT_UI_BASE_URL=http://localhost:5173` (optional; use only for separate-host frontend)
+- `REACT_UI_ENABLED=true` (default)
+- `REACT_UI_BASE_URL=` for single-host mode (recommended)
+- `REACT_UI_BASE_URL=https://<frontend-host>` for separate-host mode (optional)
+- `REACT_MANAGE_UI_ENABLED` remains as legacy compatibility flag
 
 Single-host mode (recommended):
 
-- Set `REACT_MANAGE_UI_ENABLED=true`
+- Set `REACT_UI_ENABLED=true`
 - Leave `REACT_UI_BASE_URL` blank
-- Django serves React shell directly on management routes.
+- Django serves React shell directly on non-admin routes.
 
 Separate-host mode:
 
-- Set both `REACT_MANAGE_UI_ENABLED=true` and `REACT_UI_BASE_URL=<frontend host>`
-- Django staff routes redirect to external React host.
+- Set `REACT_UI_ENABLED=true` and `REACT_UI_BASE_URL=<frontend host>`
+- Django non-admin routes redirect to external React host.
 
 Separate-host route mapping:
 
+- `/` -> `${REACT_UI_BASE_URL}/`
+- `/feedback/` -> `${REACT_UI_BASE_URL}/feedback`
 - `/manage/` -> `${REACT_UI_BASE_URL}/manage`
 - `/manage/staging/` -> `${REACT_UI_BASE_URL}/manage/staging`
 - `/manage/validation/` -> `${REACT_UI_BASE_URL}/manage/validation`

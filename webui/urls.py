@@ -26,6 +26,7 @@ from webui.views import (
 
 urlpatterns = [
     path("", home, name="home"),
+    path("landing/", home, name="landing-home"),
     path("feedback/", feedback_home, name="feedback-home"),
     path("feedback/swipe/", feedback_swipe, name="feedback-swipe"),
     path("feedback/submit/", submit_feedback, name="submit-feedback"),

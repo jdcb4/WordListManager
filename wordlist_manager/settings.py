@@ -17,6 +17,7 @@ EXPORTS_DIR.mkdir(exist_ok=True)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = os.getenv("DEBUG", "true").lower() == "true"
+REACT_UI_ENABLED = os.getenv("REACT_UI_ENABLED", "true").strip().lower() == "true"
 REACT_MANAGE_UI_ENABLED = os.getenv("REACT_MANAGE_UI_ENABLED", "false").strip().lower() == "true"
 REACT_UI_BASE_URL = os.getenv("REACT_UI_BASE_URL", "").strip().rstrip("/")
 

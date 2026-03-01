@@ -4,8 +4,8 @@ This folder is the start of the React migration using Tailwind and shadcn-style 
 
 Implemented pages:
 
-1. Landing page (`/landing`)
-2. Feedback interface (`/feedback`)
+1. Landing page (`/`, `/landing`)
+2. Feedback interface (`/feedback`, `/feedback/swipe`)
 3. Management overview (`/manage`)
 4. Management staging (`/manage/staging`)
 5. Management validation (`/manage/validation`)
@@ -17,7 +17,7 @@ Implemented pages:
 Recommended production setup is to serve React from the same Django host:
 
 1. Docker builds `frontend/dist`.
-2. Django serves management routes with a React shell.
+2. Django serves non-admin routes with a React shell.
 3. API calls stay relative (`/api/...`) and share session/CSRF cookies.
 
 ## Run locally

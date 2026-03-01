@@ -55,18 +55,20 @@ export function LandingPage() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Landing Page (React Transition)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <Badge>Active: {stats?.total_active_words ?? "..."}</Badge>
-            <Badge>Version: {stats?.dataset_version ?? "..."}</Badge>
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-sky-100 via-teal-50 to-amber-100">
+          <CardTitle>Word Library</CardTitle>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <Badge>Active words: {stats?.total_active_words ?? "..."}</Badge>
+            <Badge>Dataset version: {stats?.dataset_version ?? "..."}</Badge>
+            <a className="rounded-full border border-border bg-white px-3 py-1" href="/api/v1/exports/latest.csv">Download CSV</a>
+            <a className="rounded-full border border-border bg-white px-3 py-1" href="/api/v1/exports/latest.json">Download JSON</a>
           </div>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-4">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <Input
-              placeholder="Search word"
+              placeholder="Search word or phrase"
               value={filters.q}
               onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
             />
@@ -109,7 +111,10 @@ export function LandingPage() {
               <option value="medium">medium</option>
               <option value="hard">hard</option>
             </select>
-            <Button variant="outline" onClick={() => setFilters({ q: "", word_type: "", category: "", collection: "", difficulty: "" })}>
+            <Button
+              variant="outline"
+              onClick={() => setFilters({ q: "", word_type: "", category: "", collection: "", difficulty: "" })}
+            >
               Clear Filters
             </Button>
           </div>
@@ -118,12 +123,14 @@ export function LandingPage() {
           </div>
           {error ? <div className="text-sm text-red-700">{error}</div> : null}
           {loading ? <div className="text-sm">Loading...</div> : null}
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {words.map((word) => (
-              <div key={word.id} className="rounded-md border border-border bg-white p-3">
+              <div key={word.id} className="rounded-xl border border-border bg-white/90 p-3 shadow-sm">
                 <div className="text-lg font-semibold">{word.word}</div>
-                <div className="text-xs text-muted-foreground">
-                  {word.word_type} | {word.category || "-"} | {word.collection || "-"}
+                <div className="mb-2 mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                  <span className="rounded-full bg-slate-100 px-2 py-1">{word.word_type}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">{word.category || "-"}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-1">{word.collection || "-"}</span>
                 </div>
                 <div className="text-sm">{word.hint || "-"}</div>
               </div>

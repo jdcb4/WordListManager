@@ -65,6 +65,14 @@ export function ManageFeedbackPage() {
   return (
     <div className="space-y-4">
       <Card>
+        <CardContent className="flex flex-wrap items-center gap-2 pt-4">
+          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/">Overview</a>
+          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/staging/">Staging</a>
+          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/validation/">Validation</a>
+          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/feedback/">Feedback</a>
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader>
           <CardTitle>Feedback Moderation (React Migration)</CardTitle>
         </CardHeader>

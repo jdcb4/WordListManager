@@ -2,9 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --background: 48 33% 96%;
+    --foreground: 208 30% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 208 30% 14%;
+    --primary: 201 69% 42%;
+    --primary-foreground: 0 0% 100%;
+    --muted: 200 24% 92%;
+    --muted-foreground: 208 16% 35%;
+    --border: 201 20% 82%;
+    --input: 201 20% 82%;
+  }
+}
+
 body {
   margin: 0;
-  font-family: "Segoe UI", Tahoma, sans-serif;
-  background: linear-gradient(140deg, #f6f4ef 0%, #e9f0f4 60%, #edf4ea 100%);
+  font-family: "Trebuchet MS", "Segoe UI", Tahoma, sans-serif;
+  background:
+    radial-gradient(circle at 16% 12%, rgba(135, 207, 235, 0.32), transparent 38%),
+    radial-gradient(circle at 84% 16%, rgba(255, 215, 160, 0.28), transparent 34%),
+    linear-gradient(145deg, #f6f4ef 0%, #e8f0f4 55%, #f1f6ee 100%);
   color: hsl(202 23% 16%);
 }

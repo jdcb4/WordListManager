@@ -114,3 +114,15 @@ class ManagementBulkActionTests(TestCase):
         response = self.client.get("/manage/feedback/")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "http://localhost:5173/manage/feedback")
+
+    @override_settings(REACT_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_home_redirects_to_react_host_when_enabled(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/")
+
+    @override_settings(REACT_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_feedback_redirects_to_react_host_when_enabled(self):
+        response = self.client.get("/feedback/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/feedback")

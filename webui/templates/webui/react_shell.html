@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="{% static react_css_asset %}">
 </head>
 <body>
+  <form style="display:none">{% csrf_token %}</form>
   <div id="root"></div>
   <script type="module" src="{% static react_js_asset %}"></script>
 </body>

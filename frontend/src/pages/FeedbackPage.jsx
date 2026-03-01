@@ -27,6 +27,15 @@ export function FeedbackPage() {
     loadWord();
   }, [loadWord]);
 
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "ArrowRight") submit("good");
+      if (event.key === "ArrowLeft") submit("bad");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [word]);
+
   async function submit(verdict) {
     if (!word) return;
     setStatus("Saving feedback...");
@@ -63,13 +72,16 @@ export function FeedbackPage() {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Feedback Swipe (React Transition)</CardTitle>
+        <CardTitle>Swipe Feedback</CardTitle>
+        <div className="text-sm text-muted-foreground">
+          Swipe or use arrow keys: left = bad, right = good.
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div
-          className="mx-auto flex h-80 max-w-md select-none items-center justify-center rounded-xl border border-border bg-white p-6 text-center"
+          className="mx-auto flex h-80 max-w-md select-none items-center justify-center rounded-2xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 text-center shadow-sm"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -81,7 +93,7 @@ export function FeedbackPage() {
         >
           {word ? (
             <div>
-              <div className="text-4xl font-bold">{word.word}</div>
+              <div className="text-4xl font-bold tracking-tight">{word.word}</div>
               <div className="mt-2 text-sm text-muted-foreground">
                 {[word.word_type, word.category, word.collection].filter(Boolean).join(" | ")}
               </div>
@@ -92,8 +104,8 @@ export function FeedbackPage() {
           )}
         </div>
         <div className="flex justify-center gap-3">
-          <Button variant="destructive" onClick={() => submit("bad")}>Bad</Button>
-          <Button onClick={() => submit("good")}>Good</Button>
+          <Button variant="destructive" onClick={() => submit("bad")}>Bad (Left)</Button>
+          <Button onClick={() => submit("good")}>Good (Right)</Button>
         </div>
         <div className="text-center text-sm text-muted-foreground">{status}</div>
       </CardContent>

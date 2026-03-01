@@ -34,8 +34,16 @@ from words.services.quality import validate_wordlist
 from words.services.staging import create_batch_from_upload, review_staged_word
 
 
-def _react_manage_redirect(request: HttpRequest, path: str) -> HttpResponse | None:
-    if not getattr(settings, "REACT_MANAGE_UI_ENABLED", False):
+def _react_ui_enabled(*, manage_scope: bool) -> bool:
+    if getattr(settings, "REACT_UI_ENABLED", True):
+        return True
+    if manage_scope and getattr(settings, "REACT_MANAGE_UI_ENABLED", False):
+        return True
+    return False
+
+
+def _react_redirect(request: HttpRequest, path: str, *, manage_scope: bool) -> HttpResponse | None:
+    if not _react_ui_enabled(manage_scope=manage_scope):
         return None
     base_url = getattr(settings, "REACT_UI_BASE_URL", "")
     if not base_url:
@@ -59,10 +67,10 @@ def _load_react_bundle() -> dict[str, str] | None:
     return {"css": css_match.group(1), "js": js_match.group(1)}
 
 
-def _react_manage_shell(request: HttpRequest, route: str) -> HttpResponse | None:
-    if not getattr(settings, "REACT_MANAGE_UI_ENABLED", False):
+def _react_shell(request: HttpRequest, route: str, *, manage_scope: bool) -> HttpResponse | None:
+    if not _react_ui_enabled(manage_scope=manage_scope):
         return None
-    external_redirect = _react_manage_redirect(request, route)
+    external_redirect = _react_redirect(request, route, manage_scope=manage_scope)
     if external_redirect:
         return external_redirect
     bundle = _load_react_bundle()
@@ -83,6 +91,11 @@ def _react_manage_shell(request: HttpRequest, route: str) -> HttpResponse | None
 
 
 def home(request):
+    react_target = request.path.rstrip("/") or "/"
+    react_shell = _react_shell(request, react_target, manage_scope=False)
+    if react_shell:
+        return react_shell
+
     queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
 
     word_type = request.GET.get("word_type", "").strip()
@@ -121,7 +134,7 @@ def home(request):
 
 @login_required
 def manage_dashboard(request):
-    react_shell = _react_manage_shell(request, "/manage")
+    react_shell = _react_shell(request, "/manage", manage_scope=True)
     if react_shell:
         return react_shell
 
@@ -234,7 +247,7 @@ def run_manage_check_deploy(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_validation(request: HttpRequest) -> HttpResponse:
-    react_shell = _react_manage_shell(request, "/manage/validation")
+    react_shell = _react_shell(request, "/manage/validation", manage_scope=True)
     if react_shell:
         return react_shell
 
@@ -358,6 +371,11 @@ def run_ai_generate_words(request: HttpRequest) -> HttpResponse:
 
 
 def feedback_home(request: HttpRequest) -> HttpResponse:
+    react_target = request.path.rstrip("/") or "/feedback"
+    react_shell = _react_shell(request, react_target, manage_scope=False)
+    if react_shell:
+        return react_shell
+
     word = WordEntry.objects.filter(is_active=True).order_by("?").first()
     recent = (
         WordFeedback.objects.filter(reporter_token=request.session.session_key or "")
@@ -372,6 +390,10 @@ def feedback_home(request: HttpRequest) -> HttpResponse:
 
 
 def feedback_swipe(request: HttpRequest) -> HttpResponse:
+    react_target = request.path.rstrip("/") or "/feedback/swipe"
+    react_shell = _react_shell(request, react_target, manage_scope=False)
+    if react_shell:
+        return react_shell
     return render(
         request,
         "webui/feedback_swipe.html",
@@ -408,7 +430,7 @@ def submit_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_feedback(request: HttpRequest) -> HttpResponse:
-    react_shell = _react_manage_shell(request, "/manage/feedback")
+    react_shell = _react_shell(request, "/manage/feedback", manage_scope=True)
     if react_shell:
         return react_shell
 
@@ -485,7 +507,7 @@ def bulk_resolve_feedback(request: HttpRequest) -> HttpResponse:
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def staging_dashboard(request: HttpRequest) -> HttpResponse:
-    react_shell = _react_manage_shell(request, "/manage/staging")
+    react_shell = _react_shell(request, "/manage/staging", manage_scope=True)
     if react_shell:
         return react_shell
 
