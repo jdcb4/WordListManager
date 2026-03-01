@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { PageHeader } from "../components/common/page-header";
 import { Badge } from "../components/ui/badge";
@@ -11,6 +12,8 @@ const PREFETCH_BATCH_SIZE = 20;
 const PREFETCH_LOW_WATERMARK = 5;
 
 export function FeedbackPage() {
+  const location = useLocation();
+  const isImmersive = location.pathname.includes("/feedback/app") || location.pathname.includes("/feedback/swipe/app");
   const [queue, setQueue] = useState([]);
   const [status, setStatus] = useState("Loading...");
   const [dragX, setDragX] = useState(0);
@@ -112,6 +115,14 @@ export function FeedbackPage() {
         description="Quick playtest loop for quality signals. Keyboard: left and right arrows."
         secondaryActions={
           <>
+            {!isImmersive ? (
+              <a
+                className="inline-flex h-8 items-center rounded-md border border-border bg-white px-3 text-xs"
+                href="/feedback/app/"
+              >
+                App Mode
+              </a>
+            ) : null}
             <Badge className="py-1 text-sm">Session votes: {votes}</Badge>
             <Badge className="py-1 text-sm">Cache: {queue.length}</Badge>
             {prefetching ? <Badge className="py-1 text-sm">Prefetching...</Badge> : null}

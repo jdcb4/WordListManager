@@ -5,7 +5,7 @@ This folder is the start of the React migration using Tailwind and shadcn-style 
 Implemented pages:
 
 1. Landing page (`/`, `/landing`)
-2. Feedback interface (`/feedback`, `/feedback/swipe`)
+2. Feedback interface (`/feedback`, `/feedback/swipe`, `/feedback/app` immersive mode)
 3. Management overview (`/manage`)
 4. Management ingestion (`/manage/ingestion`)
 5. Management staging (`/manage/staging`)

@@ -28,6 +28,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/feedback/" element={<FeedbackPage />} />
             <Route path="/feedback/swipe" element={<FeedbackPage />} />
             <Route path="/feedback/swipe/" element={<FeedbackPage />} />
+            <Route path="/feedback/app" element={<FeedbackPage />} />
+            <Route path="/feedback/app/" element={<FeedbackPage />} />
+            <Route path="/feedback/swipe/app" element={<FeedbackPage />} />
+            <Route path="/feedback/swipe/app/" element={<FeedbackPage />} />
             <Route path="/manage" element={<ManagePage />} />
             <Route path="/manage/" element={<ManagePage />} />
             <Route path="/manage/ingestion" element={<ManageIngestionPage />} />

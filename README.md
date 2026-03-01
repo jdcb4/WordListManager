@@ -41,6 +41,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
 - Web UI:
   - `GET /` React landing page (word browse/filter/download)
   - `GET /feedback/` React feedback swipe UI
+  - `GET /feedback/app/` immersive mobile-focused swipe UI
   - `GET /manage/` React management overview (authenticated staff)
   - `GET /manage/ingestion/` React ingestion workflow (upload + AI generation)
   - `GET /manage/qa/` React QA workflow (complete missing fields)
@@ -167,7 +168,7 @@ Initial React + Tailwind + shadcn-style frontend scaffold lives in [frontend/REA
 Implemented React pages:
 
 1. Landing page (`/`, `/landing`)
-2. Feedback page (`/feedback`, `/feedback/swipe`)
+2. Feedback page (`/feedback`, `/feedback/swipe`, `/feedback/app`)
 3. Management page (`/manage`)
    - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
 4. Dedicated management routes:
@@ -199,6 +200,7 @@ Separate-host route mapping:
 
 - `/` -> `${REACT_UI_BASE_URL}/`
 - `/feedback/` -> `${REACT_UI_BASE_URL}/feedback`
+- `/feedback/app/` -> `${REACT_UI_BASE_URL}/feedback/app`
 - `/manage/` -> `${REACT_UI_BASE_URL}/manage`
 - `/manage/ingestion/` -> `${REACT_UI_BASE_URL}/manage/ingestion`
 - `/manage/qa/` -> `${REACT_UI_BASE_URL}/manage/qa`

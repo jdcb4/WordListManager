@@ -92,6 +92,10 @@ class ManagementBulkActionTests(TestCase):
         response = self.client.get("/feedback/swipe/")
         self.assertEqual(response.status_code, 200)
 
+    def test_feedback_app_page_renders(self):
+        response = self.client.get("/feedback/app/")
+        self.assertEqual(response.status_code, 200)
+
     def test_manage_validation_page_renders(self):
         WordEntry.objects.create(text="Twig", word_type=WordType.DESCRIBING)
         response = self.client.get("/manage/validation/")
@@ -144,3 +148,9 @@ class ManagementBulkActionTests(TestCase):
         response = self.client.get("/feedback/")
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "http://localhost:5173/feedback")
+
+    @override_settings(REACT_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_feedback_app_redirects_to_react_host_when_enabled(self):
+        response = self.client.get("/feedback/app/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/feedback/app")
