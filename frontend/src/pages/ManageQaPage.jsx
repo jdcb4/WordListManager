@@ -11,10 +11,12 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageQaPage() {
+  const { runJob } = useJobTracker();
   const [qaCandidates, setQaCandidates] = useState({ count: 0, results: [], generated_at_utc: null });
   const [scope, setScope] = useState("all_missing");
   const [selectedWordIds, setSelectedWordIds] = useState([]);
@@ -62,7 +64,12 @@ export function ManageQaPage() {
         limit,
         ...(scope === "selected_words" ? { word_ids: selectedWordIds } : {}),
       };
-      const data = await apiPost("/api/v1/manage/ai/complete", payload);
+      const data = await runJob({
+        title: "QA: Complete Missing Fields",
+        description: `${scope === "selected_words" ? selectedWordIds.length : qaCandidates?.count || 0} candidate rows`,
+        source: "/manage/qa",
+        task: () => apiPost("/api/v1/manage/ai/complete", payload),
+      });
       setMessage(
         `Processed ${data.processed}, suggested ${data.suggested}, staged ${data.staged_rows}. Batch #${data.batch_id ?? "-"}.`
       );

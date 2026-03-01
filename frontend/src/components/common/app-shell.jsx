@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 import { cn } from "../../lib/utils";
+import { CurrentJobsPanel } from "./current-jobs-panel";
 
 const navGroups = [
   {
@@ -83,7 +84,10 @@ export function AppShell({ children }) {
             </a>
           </div>
         </aside>
-        <main className="space-y-4">{children}</main>
+        <main className="space-y-4">
+          {children}
+          <CurrentJobsPanel />
+        </main>
       </div>
     </div>
   );

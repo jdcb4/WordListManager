@@ -11,10 +11,12 @@ import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
 import { apiGet, apiPost } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageValidationPage() {
+  const { runJob } = useJobTracker();
   const [validation, setValidation] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [model, setModel] = useState("google/gemini-2.5-flash-lite");
@@ -57,7 +59,14 @@ export function ManageValidationPage() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await apiPost(action, payload);
+      const data = await runJob({
+        title: action.includes("ai_complete")
+          ? "Validation: AI complete selected"
+          : "Validation: Apply action",
+        description: `${(payload.word_ids || []).length || 0} selected row(s)`,
+        source: "/manage/validation",
+        task: () => apiPost(action, payload),
+      });
       if (action.includes("validation/action")) {
         setMessage(`Processed ${data.processed || 0} word(s).`);
       } else {

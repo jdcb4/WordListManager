@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { apiGet, apiPost } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 function stringifyReport(report) {
   if (!report || typeof report !== "object") return String(report || "");
@@ -17,6 +18,7 @@ function stringifyReport(report) {
 }
 
 export function ManagePage() {
+  const { runJob } = useJobTracker();
   const [dashboard, setDashboard] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,12 @@ export function ManagePage() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await apiPost(action, {});
+      const data = await runJob({
+        title: action.includes("/publish") ? "Publish dataset" : "Run maintenance action",
+        description: action,
+        source: "/manage",
+        task: () => apiPost(action, {}),
+      });
       setMessage(stringifyReport(data));
       await refresh();
     } catch (err) {

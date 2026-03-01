@@ -12,10 +12,12 @@ import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
 import { apiGet, apiPost } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageStagingPage() {
+  const { runJob } = useJobTracker();
   const [staging, setStaging] = useState({ total: 0, results: [], batches: [] });
   const [stagingFilters, setStagingFilters] = useState({ status: "pending", batch_id: "", limit: 200 });
   const [selectedStagedIds, setSelectedStagedIds] = useState([]);
@@ -25,6 +27,15 @@ export function ManageStagingPage() {
 
   const rows = staging?.results || [];
   const activeRow = rows.find((row) => row.id === activeStagedId) || null;
+  const batchStats = useMemo(() => {
+    const batches = staging?.batches || [];
+    const total = batches.length;
+    const completed = batches.filter((batch) => batch.status === "completed").length;
+    const inReview = batches.filter((batch) => batch.status === "in_review").length;
+    const pending = batches.filter((batch) => batch.status === "pending").length;
+    const percent = total ? Math.round((completed / total) * 100) : 0;
+    return { total, completed, inReview, pending, percent };
+  }, [staging]);
 
   async function refresh() {
     try {
@@ -104,10 +115,16 @@ export function ManageStagingPage() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await apiPost("/api/v1/manage/staging/review", {
-        action,
-        staged_word_ids: idsToReview,
-        note: "",
+      const data = await runJob({
+        title: `Staging: ${action === "approve" ? "Approve" : "Reject"} rows`,
+        description: `${idsToReview.length} selected row(s)`,
+        source: "/manage/staging",
+        task: () =>
+          apiPost("/api/v1/manage/staging/review", {
+            action,
+            staged_word_ids: idsToReview,
+            note: "",
+          }),
       });
       setMessage(`Action ${action} completed. Reviewed: ${data.reviewed}, skipped: ${data.skipped_non_pending}.`);
       await refresh();
@@ -198,6 +215,23 @@ export function ManageStagingPage() {
         <CardContent className="space-y-3 pt-4">
           <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
             Ingestion is managed in the Ingestion tab. This tab is review + decision only.
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-sm font-medium">
+                Batch progress: {batchStats.completed}/{batchStats.total || 0} completed
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Pending: {batchStats.pending} | In review: {batchStats.inReview}
+              </div>
+            </div>
+            <div className="mt-2 h-2 w-full rounded-full bg-muted">
+              <div
+                className="h-2 rounded-full bg-primary transition-all"
+                style={{ width: `${batchStats.percent}%` }}
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

@@ -10,10 +10,12 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost, apiPostForm } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageIngestionPage() {
+  const { runJob } = useJobTracker();
   const [stats, setStats] = useState(null);
   const [stagingSnapshot, setStagingSnapshot] = useState({ batches: [] });
   const [message, setMessage] = useState("");
@@ -70,7 +72,12 @@ export function ManageIngestionPage() {
       const formData = new FormData();
       formData.append("file", uploadFile);
       formData.append("note", uploadNote);
-      const result = await apiPostForm("/api/v1/manage/staging/upload", formData);
+      const result = await runJob({
+        title: "Ingestion: Upload file",
+        description: uploadFile.name,
+        source: "/manage/ingestion",
+        task: () => apiPostForm("/api/v1/manage/staging/upload", formData),
+      });
       setMessage(`Uploaded batch #${result.batch_id} with ${result.total_rows} rows.`);
       setUploadFile(null);
       setUploadNote("");
@@ -86,7 +93,12 @@ export function ManageIngestionPage() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await apiPost("/api/v1/manage/ai/generate", { ...generateForm, model });
+      const data = await runJob({
+        title: "Ingestion: Generate words",
+        description: `${generateForm.count} ${generateForm.word_type} words`,
+        source: "/manage/ingestion",
+        task: () => apiPost("/api/v1/manage/ai/generate", { ...generateForm, model }),
+      });
       setMessage(
         `Generated ${data.generated}/${data.requested} rows to staging. Batch #${data.batch_id ?? "-"}.`
       );
@@ -104,7 +116,7 @@ export function ManageIngestionPage() {
     columnHelper.accessor("source_filename", { header: "Source", meta: { filterVariant: "text" } }),
     columnHelper.accessor("status", {
       header: "Status",
-      meta: { filterVariant: "select", filterOptions: ["pending", "processed", "failed"] },
+      meta: { filterVariant: "select", filterOptions: ["pending", "in_review", "completed"] },
     }),
     columnHelper.accessor("total_rows", { header: "Rows" }),
     columnHelper.accessor("pending_count", { header: "Pending" }),
