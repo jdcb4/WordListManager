@@ -44,6 +44,14 @@ class ApiSmokeTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(WordFeedback.objects.count(), 1)
 
+    def test_word_list_multi_filter_supports_csv_values(self):
+        who, _ = Category.objects.get_or_create(name="Who")
+        WordEntry.objects.create(text="Ada Lovelace", word_type=WordType.GUESSING, category=who, difficulty="easy")
+        WordEntry.objects.create(text="Sydney Harbour", word_type=WordType.DESCRIBING, difficulty="medium")
+        response = self.client.get("/api/v1/words/?word_type=guessing,describing&difficulty=easy,medium")
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.data["count"], 2)
+
 
 class ManageStagingApiTests(APITestCase):
     def setUp(self):

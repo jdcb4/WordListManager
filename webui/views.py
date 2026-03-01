@@ -161,6 +161,14 @@ def manage_dashboard(request):
     return render(request, "webui/manage.html", context)
 
 
+@login_required
+def manage_ai(request):
+    react_shell = _react_shell(request, "/manage/ai", manage_scope=True)
+    if react_shell:
+        return react_shell
+    return redirect("manage-dashboard")
+
+
 def _command_output(command_name: str, **kwargs) -> tuple[bool, str]:
     stdout = StringIO()
     try:

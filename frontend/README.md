@@ -7,9 +7,10 @@ Implemented pages:
 1. Landing page (`/`, `/landing`)
 2. Feedback interface (`/feedback`, `/feedback/swipe`)
 3. Management overview (`/manage`)
-4. Management staging (`/manage/staging`)
-5. Management validation (`/manage/validation`)
-6. Management feedback moderation (`/manage/feedback`)
+4. Management AI tools (`/manage/ai`)
+5. Management staging (`/manage/staging`)
+6. Management validation (`/manage/validation`)
+7. Management feedback moderation (`/manage/feedback`)
    - Staging includes upload/review with field-by-field change previews
 
 ## Single-host deployment

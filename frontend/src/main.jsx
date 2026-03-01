@@ -9,6 +9,7 @@ import { ManagePage } from "./pages/ManagePage";
 import { ManageStagingPage } from "./pages/ManageStagingPage";
 import { ManageValidationPage } from "./pages/ManageValidationPage";
 import { ManageFeedbackPage } from "./pages/ManageFeedbackPage";
+import { ManageAiPage } from "./pages/ManageAiPage";
 
 function AppShell() {
   return (
@@ -24,6 +25,7 @@ function AppShell() {
           <a className="rounded-full border border-border bg-white px-3 py-1" href="/manage/">Manage</a>
           <a className="rounded-full border border-border bg-white px-3 py-1" href="/manage/staging/">Staging</a>
           <a className="rounded-full border border-border bg-white px-3 py-1" href="/manage/validation/">Validation</a>
+          <a className="rounded-full border border-border bg-white px-3 py-1" href="/manage/ai/">AI</a>
           <a className="rounded-full border border-border bg-white px-3 py-1" href="/manage/feedback/">Feedback Mod</a>
           <a className="rounded-full border border-border bg-white px-3 py-1" href="/admin/">Admin</a>
         </nav>
@@ -42,6 +44,8 @@ function AppShell() {
         <Route path="/manage/staging/" element={<ManageStagingPage />} />
         <Route path="/manage/validation" element={<ManageValidationPage />} />
         <Route path="/manage/validation/" element={<ManageValidationPage />} />
+        <Route path="/manage/ai" element={<ManageAiPage />} />
+        <Route path="/manage/ai/" element={<ManageAiPage />} />
         <Route path="/manage/feedback" element={<ManageFeedbackPage />} />
         <Route path="/manage/feedback/" element={<ManageFeedbackPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

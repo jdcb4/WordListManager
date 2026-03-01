@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
+import { createColumnHelper } from "@tanstack/react-table";
 
+import { ManageTabs } from "../components/common/manage-tabs";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { DataTable } from "../components/ui/data-table";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost } from "../lib/http";
+
+const columnHelper = createColumnHelper();
 
 export function ManageFeedbackPage() {
   const [pending, setPending] = useState([]);
@@ -13,6 +18,7 @@ export function ManageFeedbackPage() {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [commentFilter, setCommentFilter] = useState("");
 
   async function refresh() {
     try {
@@ -37,7 +43,7 @@ export function ManageFeedbackPage() {
   }
 
   function selectAll() {
-    setSelectedIds(pending.map((item) => item.id));
+    setSelectedIds(filteredRows.map((item) => item.id));
   }
 
   async function applyResolution() {
@@ -62,21 +68,42 @@ export function ManageFeedbackPage() {
     }
   }
 
+  const filteredRows = pending.filter((item) =>
+    [item.word, item.comment, item.verdict].join(" ").toLowerCase().includes(commentFilter.toLowerCase())
+  );
+
+  const columns = [
+    columnHelper.display({
+      id: "select",
+      header: "Select",
+      cell: (ctx) => (
+        <input
+          type="checkbox"
+          checked={selectedIds.includes(ctx.row.original.id)}
+          onChange={() => toggleSelected(ctx.row.original.id)}
+        />
+      ),
+    }),
+    columnHelper.accessor("word", { header: "Word" }),
+    columnHelper.accessor("verdict", { header: "Verdict" }),
+    columnHelper.accessor("comment", {
+      header: "Comment",
+      cell: (ctx) => ctx.getValue() || "-",
+    }),
+    columnHelper.accessor("created_at", {
+      header: "Created",
+      cell: (ctx) => new Date(ctx.getValue()).toLocaleString(),
+    }),
+  ];
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-2 pt-4">
-          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/">Overview</a>
-          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/staging/">Staging</a>
-          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/validation/">Validation</a>
-          <a className="rounded-full border border-border bg-white px-3 py-1 text-sm" href="/manage/feedback/">Feedback</a>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Feedback Moderation (React Migration)</CardTitle>
+      <ManageTabs active="feedback" />
+      <Card className="overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-fuchsia-100 via-rose-50 to-amber-100">
+          <CardTitle>Feedback Moderation</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pt-4">
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded border border-border bg-white p-3 text-sm">
               Pending good: <strong>{counts.pending_good_count}</strong>
@@ -96,51 +123,14 @@ export function ManageFeedbackPage() {
               <option value="deactivate">deactivate</option>
               <option value="ignore">ignore</option>
             </select>
-            <Input
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="Moderator note"
-            />
-            <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>
-              Apply to Selected
-            </Button>
-            <Button variant="outline" onClick={refresh} disabled={loading}>
-              Refresh
-            </Button>
+            <Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Moderator note" />
+            <Input value={commentFilter} onChange={(event) => setCommentFilter(event.target.value)} placeholder="Filter comment/word" />
+            <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>Apply to Selected</Button>
+            <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
           </div>
+          <DataTable columns={columns} data={filteredRows} emptyText="No pending feedback items." />
           <div className="rounded border border-border bg-muted p-3 text-xs">
             {message || "Select rows and apply moderation action."}
-          </div>
-
-          <div className="max-h-[560px] overflow-auto rounded border border-border">
-            <table className="min-w-full text-sm">
-              <thead className="sticky top-0 bg-muted">
-                <tr>
-                  <th className="px-2 py-1 text-left">Select</th>
-                  <th className="px-2 py-1 text-left">Word</th>
-                  <th className="px-2 py-1 text-left">Verdict</th>
-                  <th className="px-2 py-1 text-left">Comment</th>
-                  <th className="px-2 py-1 text-left">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((item) => (
-                  <tr key={item.id} className="border-t border-border">
-                    <td className="px-2 py-1">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(item.id)}
-                        onChange={() => toggleSelected(item.id)}
-                      />
-                    </td>
-                    <td className="px-2 py-1">{item.word}</td>
-                    <td className="px-2 py-1">{item.verdict}</td>
-                    <td className="px-2 py-1">{item.comment || "-"}</td>
-                    <td className="px-2 py-1">{new Date(item.created_at).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </CardContent>
       </Card>

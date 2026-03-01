@@ -71,6 +71,21 @@ export function FeedbackPage() {
     dragStartRef.current = null;
   }
 
+  function onTouchStart(event) {
+    dragStartRef.current = event.touches[0]?.clientX ?? null;
+  }
+
+  function onTouchMove(event) {
+    if (dragStartRef.current === null) return;
+    const nextX = event.touches[0]?.clientX;
+    if (typeof nextX !== "number") return;
+    setDragX(nextX - dragStartRef.current);
+  }
+
+  function onTouchEnd() {
+    onPointerUp();
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
@@ -86,9 +101,13 @@ export function FeedbackPage() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
           style={{
             transform: `translateX(${dragX}px) rotate(${dragX / 20}deg)`,
             transition: dragStartRef.current === null ? "transform 0.2s ease" : "none",
+            touchAction: "none",
           }}
         >
           {word ? (

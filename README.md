@@ -41,6 +41,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
   - `GET /` React landing page (word browse/filter/download)
   - `GET /feedback/` React feedback swipe UI
   - `GET /manage/` React management overview (authenticated staff)
+  - `GET /manage/ai/` React AI workflow
   - `GET /manage/staging/` React staging workflow
   - `GET /manage/validation/` React validation workflow
   - `GET /manage/feedback/` React moderation workflow
@@ -152,6 +153,10 @@ See [ui-modernization-plan.md](docs/ui-modernization-plan.md) for a non-implemen
 - Hybrid React migration path
 - Full React SPA path
 
+Latest implementation and architecture review:
+
+- [project-review-2026-03-01.md](docs/project-review-2026-03-01.md)
+
 ## React transition
 
 Initial React + Tailwind + shadcn-style frontend scaffold lives in [frontend/README.md](frontend/README.md).
@@ -163,6 +168,7 @@ Implemented React pages:
 3. Management page (`/manage`)
    - Includes React staging review with bulk approve/reject and per-field update preview (current vs staged values)
 4. Dedicated management routes:
+   - `/manage/ai`
    - `/manage/staging`
    - `/manage/validation`
    - `/manage/feedback`
@@ -190,6 +196,7 @@ Separate-host route mapping:
 - `/` -> `${REACT_UI_BASE_URL}/`
 - `/feedback/` -> `${REACT_UI_BASE_URL}/feedback`
 - `/manage/` -> `${REACT_UI_BASE_URL}/manage`
+- `/manage/ai/` -> `${REACT_UI_BASE_URL}/manage/ai`
 - `/manage/staging/` -> `${REACT_UI_BASE_URL}/manage/staging`
 - `/manage/validation/` -> `${REACT_UI_BASE_URL}/manage/validation`
 - `/manage/feedback/` -> `${REACT_UI_BASE_URL}/manage/feedback`

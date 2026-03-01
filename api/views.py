@@ -39,7 +39,15 @@ class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = WordEntrySerializer
     permission_classes = [permissions.AllowAny]
     search_fields = ["sanitized_text", "hint", "subcategory"]
-    ordering_fields = ["sanitized_text", "updated_at", "id"]
+    ordering_fields = [
+        "sanitized_text",
+        "word_type",
+        "difficulty",
+        "category__name",
+        "collection__name",
+        "updated_at",
+        "id",
+    ]
     filterset_class = WordEntryFilter
 
     def get_queryset(self):
@@ -516,6 +524,34 @@ class ManageValidateView(APIView):
 
     def get(self, request):
         report = validate_wordlist()
+        issues = report.get("issues", [])
+        word_ids = sorted({issue.get("word_id") for issue in issues if issue.get("word_id")})
+        words = {
+            word.id: word
+            for word in WordEntry.objects.filter(id__in=word_ids).select_related("category", "collection")
+        }
+        enriched = []
+        for issue in issues:
+            word_id = issue.get("word_id")
+            word = words.get(word_id)
+            enriched.append(
+                {
+                    **issue,
+                    "word": (
+                        {
+                            "id": word.id,
+                            "text": word.sanitized_text,
+                            "word_type": word.word_type,
+                            "category": word.category.name if word.category else "",
+                            "collection": word.collection.name if word.collection else "",
+                            "difficulty": word.difficulty,
+                        }
+                        if word
+                        else None
+                    ),
+                }
+            )
+        report["issues"] = enriched
         return Response(report, status=status.HTTP_200_OK)
 
 
@@ -524,10 +560,7 @@ class ManageValidationActionView(APIView):
 
     def post(self, request):
         action = str(request.data.get("action", "")).strip()
-        raw_ids = request.data.get("word_ids", [])
-        if isinstance(raw_ids, str):
-            raw_ids = [raw_ids]
-        word_ids = sorted({int(item) for item in raw_ids if str(item).isdigit()})
+        word_ids = _coerce_id_list(request.data.get("word_ids", []))
         if not word_ids:
             return Response({"detail": "No word_ids provided."}, status=status.HTTP_400_BAD_REQUEST)
 
