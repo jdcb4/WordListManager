@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../ui/button";
 import { useJobTracker } from "../../lib/job-tracker";
@@ -14,6 +14,14 @@ export function CurrentJobsPanel() {
   const [open, setOpen] = useState(false);
   const { jobs, runningCount, dismissJob, clearFinishedJobs } = useJobTracker();
   const visibleJobs = useMemo(() => jobs.slice(0, 8), [jobs]);
+  const previousRunningRef = useRef(runningCount);
+
+  useEffect(() => {
+    if (runningCount > 0 && previousRunningRef.current === 0) {
+      setOpen(true);
+    }
+    previousRunningRef.current = runningCount;
+  }, [runningCount]);
 
   return (
     <div className="pointer-events-none fixed bottom-3 right-3 z-40 flex w-[360px] max-w-[calc(100vw-1.5rem)] flex-col gap-2">
@@ -61,6 +69,9 @@ export function CurrentJobsPanel() {
                     <div className={`mt-1 text-xs font-semibold ${statusTone(job.status)}`}>
                       {job.status}
                     </div>
+                    {job.source ? (
+                      <div className="mt-1 text-[11px] text-muted-foreground">Source: {job.source}</div>
+                    ) : null}
                     {job.message ? (
                       <div className="mt-1 text-xs text-red-700">{job.message}</div>
                     ) : null}

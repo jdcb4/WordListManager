@@ -11,6 +11,15 @@ const SWIPE_THRESHOLD = 110;
 const PREFETCH_BATCH_SIZE = 20;
 const PREFETCH_LOW_WATERMARK = 5;
 
+function FieldBlock({ label, value, className = "" }) {
+  return (
+    <div className={`rounded-xl border border-border bg-white/80 p-3 text-left ${className}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium text-foreground">{value || "-"}</p>
+    </div>
+  );
+}
+
 export function FeedbackPage() {
   const location = useLocation();
   const isImmersive = location.pathname.includes("/feedback/app") || location.pathname.includes("/feedback/swipe/app");
@@ -146,15 +155,12 @@ export function FeedbackPage() {
               }}
             >
               {word ? (
-                <div className="space-y-3">
-                  <div className="text-4xl font-semibold tracking-tight">{word.word}</div>
-                  <div className="flex flex-wrap justify-center gap-2 text-xs">
-                    {word.word_type ? <Badge>{word.word_type}</Badge> : null}
-                    {word.category ? <Badge>{word.category}</Badge> : null}
-                    {word.collection ? <Badge>{word.collection}</Badge> : null}
-                    {word.difficulty ? <Badge>{word.difficulty}</Badge> : null}
-                  </div>
-                  {word.hint ? <div className="text-sm text-muted-foreground">Hint: {word.hint}</div> : null}
+                <div className="w-full max-w-[430px] space-y-2">
+                  <FieldBlock label="Word" value={word.word} />
+                  <FieldBlock label="Category" value={word.category} />
+                  <FieldBlock label="Difficulty" value={word.difficulty} />
+                  <FieldBlock label="Type" value={word.word_type} />
+                  <FieldBlock label="Hint" value={word.hint} className="min-h-[72px]" />
                 </div>
               ) : (
                 <div>No word available.</div>

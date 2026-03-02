@@ -220,7 +220,7 @@ export function ManageStagingPage() {
           <div className="rounded-lg border border-border bg-card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="text-sm font-medium">
-                Batch progress: {batchStats.completed}/{batchStats.total || 0} completed
+                Batch progress: {batchStats.completed} of {batchStats.total || 0} batches completed
               </div>
               <div className="text-xs text-muted-foreground">
                 Pending: {batchStats.pending} | In review: {batchStats.inReview}
