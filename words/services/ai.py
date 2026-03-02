@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from datetime import datetime, timezone
 from itertools import islice
 from urllib.error import HTTPError, URLError
@@ -81,14 +82,31 @@ def _chat_json(*, system_prompt: str, user_prompt: str, model: str) -> dict:
         },
         method="POST",
     )
-    try:
-        with urlopen(req, timeout=90) as response:
-            parsed = json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="ignore")
-        raise AIServiceError(f"OpenRouter HTTP error {exc.code}: {body}") from exc
-    except URLError as exc:
-        raise AIServiceError(f"OpenRouter network error: {exc}") from exc
+    max_attempts = 3
+    parsed = None
+    last_error: AIServiceError | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with urlopen(req, timeout=90) as response:
+                parsed = json.loads(response.read().decode("utf-8"))
+            break
+        except HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="ignore")
+            last_error = AIServiceError(f"OpenRouter HTTP error {exc.code}: {body}")
+            retryable = exc.code in {429, 500, 502, 503, 504}
+            if retryable and attempt < max_attempts:
+                time.sleep(1.0 * attempt)
+                continue
+            raise last_error from exc
+        except URLError as exc:
+            last_error = AIServiceError(f"OpenRouter network error: {exc}")
+            if attempt < max_attempts:
+                time.sleep(1.0 * attempt)
+                continue
+            raise last_error from exc
+
+    if parsed is None:
+        raise last_error or AIServiceError("OpenRouter request failed.")
 
     try:
         content = parsed["choices"][0]["message"]["content"]
@@ -140,6 +158,9 @@ def complete_word_templates(
     suggested = 0
     processed = 0
     batches = 0
+    failed_batches = 0
+    failed_words = 0
+    warnings: list[str] = []
 
     system_prompt = (
         "You enrich game word templates. Return strict JSON only. "
@@ -166,7 +187,16 @@ def complete_word_templates(
             "Return JSON: {\"items\":[{\"id\":int,\"hint\":str,\"difficulty\":str}]}\n"
             f"Input items:\n{json.dumps(request_items, ensure_ascii=False)}"
         )
-        response = _chat_json(system_prompt=system_prompt, user_prompt=user_prompt, model=model or DEFAULT_MODEL)
+        try:
+            response = _chat_json(system_prompt=system_prompt, user_prompt=user_prompt, model=model or DEFAULT_MODEL)
+        except AIServiceError as exc:
+            # Configuration/authentication failures should fail fast.
+            if "OPEN_ROUTER_API_KEY" in str(exc):
+                raise
+            failed_batches += 1
+            failed_words += len(chunk)
+            warnings.append(str(exc)[:240])
+            continue
         items = response.get("items", [])
         if not isinstance(items, list):
             raise AIServiceError("Model response must include list field 'items'.")
@@ -207,7 +237,16 @@ def complete_word_templates(
                 suggested += 1
 
     if not staged_rows:
-        return {"processed": processed, "suggested": 0, "batches": batches, "batch_id": None, "staged_rows": 0}
+        return {
+            "processed": processed,
+            "suggested": 0,
+            "batches": batches,
+            "batch_id": None,
+            "staged_rows": 0,
+            "failed_batches": failed_batches,
+            "failed_words": failed_words,
+            "warnings": warnings,
+        }
 
     batch = create_batch_from_rows(
         rows=staged_rows,
@@ -221,6 +260,9 @@ def complete_word_templates(
         "batches": batches,
         "batch_id": batch.id,
         "staged_rows": batch.total_rows,
+        "failed_batches": failed_batches,
+        "failed_words": failed_words,
+        "warnings": warnings,
     }
 
 

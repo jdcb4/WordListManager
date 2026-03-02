@@ -76,8 +76,12 @@ export function ManageQaPage() {
         source: "/manage/qa",
         task: ({ signal }) => apiPost("/api/v1/manage/ai/complete", payload, { signal }),
       });
+      const warningSuffix =
+        data.failed_batches > 0
+          ? ` Warning: ${data.failed_batches} batch(es) failed (${data.failed_words || 0} words).`
+          : "";
       setMessage(
-        `Processed ${data.processed}, suggested ${data.suggested}, staged ${data.staged_rows}. Batch #${data.batch_id ?? "-"}.`
+        `Processed ${data.processed}, suggested ${data.suggested}, staged ${data.staged_rows}. Batch #${data.batch_id ?? "-"}.${warningSuffix}`
       );
       await refresh();
     } catch (err) {
@@ -234,4 +238,3 @@ export function ManageQaPage() {
     </div>
   );
 }
-

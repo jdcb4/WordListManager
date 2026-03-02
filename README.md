@@ -219,6 +219,8 @@ Separate-host route mapping:
    - `DEBUG=false`
    - `DATABASE_URL` (usually injected automatically from Railway Postgres)
    - `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` for your Railway domain
+   - `WEB_CONCURRENCY=2`
+   - `GUNICORN_TIMEOUT=300` (recommended for long AI QA runs)
 5. Railway starts with:
    - `./start.sh`
 6. Create a Django admin user from Railway shell:
@@ -235,6 +237,9 @@ Separate-host route mapping:
    - `ALLOWED_HOSTS=<your Railway app domain>` (ignored by default on Railway unless strict mode is enabled)
    - `CSRF_TRUSTED_ORIGINS=https://<your Railway app domain>`
    - `RAILWAY_STRICT_HOST_CHECK=false` (recommended on Railway so internal healthchecks do not get `400`)
+   - `WEB_CONCURRENCY=2`
+   - `GUNICORN_TIMEOUT=300`
+   - `GUNICORN_GRACEFUL_TIMEOUT=30`
 2. Validate health endpoint:
    - `/healthz` returns HTTP 200.
 3. Validate admin access:

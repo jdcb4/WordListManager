@@ -140,10 +140,10 @@ export function FeedbackPage() {
       />
 
       <Card className="overflow-hidden">
-        <CardContent className="space-y-4 pt-4">
+      <CardContent className="space-y-4 pt-4">
           <div className="mx-auto w-full max-w-lg">
             <div
-              className="flex h-[420px] select-none items-center justify-center rounded-3xl border border-border bg-gradient-to-br from-white to-slate-50 p-6 text-center shadow-md"
+              className="flex h-[520px] select-none items-center justify-center rounded-3xl border border-slate-300 bg-gradient-to-br from-slate-100 via-white to-slate-200 p-6 text-center shadow-xl"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -155,17 +155,16 @@ export function FeedbackPage() {
               }}
             >
               {word ? (
-                <div className="w-full max-w-[430px] space-y-2">
-                  <FieldBlock
-                    label="Word"
-                    value={word.word}
-                    className="bg-white"
-                    valueClassName="text-4xl font-extrabold leading-tight tracking-tight"
-                  />
+                <div className="grid w-full max-w-[430px] grid-cols-2 auto-rows-[76px] gap-2">
+                  <div className="col-span-2 row-span-2 flex items-center justify-center rounded-xl border border-sky-200 bg-gradient-to-br from-white via-sky-50 to-sky-100 px-4 shadow-lg">
+                    <p className="text-center text-5xl font-extrabold leading-tight tracking-tight text-slate-900">
+                      {word.word || "-"}
+                    </p>
+                  </div>
                   <FieldBlock label="Category" value={word.category} />
                   <FieldBlock label="Difficulty" value={word.difficulty} />
                   <FieldBlock label="Type" value={word.word_type} />
-                  <FieldBlock label="Hint" value={word.hint} className="min-h-[72px]" />
+                  <FieldBlock label="Hint" value={word.hint} />
                 </div>
               ) : (
                 <div>No word available.</div>
