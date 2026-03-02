@@ -3,33 +3,32 @@ import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
 import { PageHeader } from "../components/common/page-header";
-import { BulkActionBar } from "../components/ui/bulk-action-bar";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { ConfirmDialog } from "../components/ui/confirm-dialog";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
-import { Input } from "../components/ui/input";
 import { apiGet, apiPost } from "../lib/http";
+import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageQaPage() {
+  const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
   const [qaCandidates, setQaCandidates] = useState({ count: 0, results: [], generated_at_utc: null });
-  const [scope, setScope] = useState("all_missing");
-  const [pendingRunScope, setPendingRunScope] = useState(null);
   const [selectedWordIds, setSelectedWordIds] = useState([]);
-  const [model, setModel] = useState("google/gemini-2.5-flash-lite");
-  const [limit, setLimit] = useState(200);
-  const [message, setMessage] = useState("");
+  const [processAll, setProcessAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [startNoticeOpen, setStartNoticeOpen] = useState(false);
+  const [message, setMessage] = useState("");
 
   async function refresh() {
     try {
-      const data = await apiGet("/api/v1/manage/qa/candidates?limit=2000");
+      const data = await apiGet("/api/v1/manage/qa/candidates?limit=5000");
       setQaCandidates(data);
       setSelectedWordIds([]);
     } catch (err) {
@@ -42,6 +41,7 @@ export function ManageQaPage() {
   }, []);
 
   const candidateRows = useMemo(() => qaCandidates?.results || [], [qaCandidates]);
+  const estimatedCount = processAll ? qaCandidates?.count || 0 : selectedWordIds.length;
 
   function toggleSelected(id) {
     setSelectedWordIds((prev) =>
@@ -57,30 +57,24 @@ export function ManageQaPage() {
     setSelectedWordIds([]);
   }
 
-  function openConfirm(runScope = scope) {
-    setPendingRunScope(runScope);
-    setConfirmOpen(true);
-  }
-
-  const effectiveScope = pendingRunScope || scope;
-  const estimatedCount =
-    effectiveScope === "selected_words" ? selectedWordIds.length : qaCandidates?.count || 0;
-
   async function runCompleteMissing() {
     setLoading(true);
     setMessage("");
     try {
-      const runScope = pendingRunScope || scope;
-      const payload = {
-        model,
-        limit,
-        ...(runScope === "selected_words" ? { word_ids: selectedWordIds } : {}),
-      };
+      const payload = processAll
+        ? {
+            model: settings.aiModel,
+            limit: Math.max(qaCandidates?.count || 0, 1),
+          }
+        : {
+            model: settings.aiModel,
+            word_ids: selectedWordIds,
+          };
       const data = await runJob({
         title: "QA: Complete Missing Fields",
-        description: `${runScope === "selected_words" ? selectedWordIds.length : qaCandidates?.count || 0} candidate rows`,
+        description: processAll ? "All candidates" : `${selectedWordIds.length} selected candidates`,
         source: "/manage/qa",
-        task: () => apiPost("/api/v1/manage/ai/complete", payload),
+        task: ({ signal }) => apiPost("/api/v1/manage/ai/complete", payload, { signal }),
       });
       setMessage(
         `Processed ${data.processed}, suggested ${data.suggested}, staged ${data.staged_rows}. Batch #${data.batch_id ?? "-"}.`
@@ -90,9 +84,13 @@ export function ManageQaPage() {
       setMessage(String(err));
     } finally {
       setLoading(false);
-      setConfirmOpen(false);
-      setPendingRunScope(null);
     }
+  }
+
+  function launchRun() {
+    setConfirmOpen(false);
+    setStartNoticeOpen(true);
+    void runCompleteMissing();
   }
 
   const columns = [
@@ -128,13 +126,13 @@ export function ManageQaPage() {
     <div className="space-y-4">
       <PageHeader
         title="QA Tools"
-        description="Use AI-assisted completion to fill missing fields. Suggestions are staged for review."
+        description="Selection-first workflow: choose candidate rows, then run AI completion into staging."
         primaryAction={
           <Button
-            onClick={() => openConfirm(scope)}
-            disabled={loading || (scope === "selected_words" && selectedWordIds.length === 0)}
+            onClick={() => setConfirmOpen(true)}
+            disabled={loading || (!processAll && selectedWordIds.length === 0)}
           >
-            Complete Missing to Staging
+            {processAll ? "Run Complete Missing on All" : "Run Complete Missing on Selected"}
           </Button>
         }
         secondaryActions={
@@ -153,28 +151,27 @@ export function ManageQaPage() {
       />
 
       <ManageTabs active="qa" />
+      <PageJobsPanel source="/manage/qa" />
 
       <Card>
         <CardContent className="space-y-3 pt-4">
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <Input value={model} onChange={(event) => setModel(event.target.value)} placeholder="AI model" />
-            <select
-              className="h-9 rounded border border-input bg-white px-3 text-sm"
-              value={scope}
-              onChange={(event) => setScope(event.target.value)}
-            >
-              <option value="all_missing">All words with missing fields</option>
-              <option value="selected_words">Only selected words in table</option>
-            </select>
-            <Input
-              type="number"
-              min="1"
-              max="2000"
-              value={limit}
-              onChange={(event) => setLimit(Number(event.target.value || 200))}
-            />
             <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Estimated rows: {scope === "selected_words" ? selectedWordIds.length : qaCandidates?.count || 0}
+              Model: {settings.aiModel}
+            </div>
+            <label className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                checked={processAll}
+                onChange={(event) => setProcessAll(event.target.checked)}
+              />
+              Process all candidates ({qaCandidates?.count || 0})
+            </label>
+            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Selected: {selectedWordIds.length}
+            </div>
+            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Estimated rows: {estimatedCount}
             </div>
           </div>
 
@@ -185,7 +182,11 @@ export function ManageQaPage() {
             <Button size="sm" variant="outline" onClick={clearSelectedCandidates} disabled={!selectedWordIds.length}>
               Clear selection
             </Button>
-            <span className="text-xs text-muted-foreground">{selectedWordIds.length} selected</span>
+            <span className="text-xs text-muted-foreground">
+              {processAll
+                ? "Process-all mode enabled. Selection is ignored."
+                : "Selection mode enabled."}
+            </span>
           </div>
 
           {!candidateRows.length ? (
@@ -205,30 +206,32 @@ export function ManageQaPage() {
 
           <div className="rounded-md border border-border bg-muted p-3 text-xs">
             {message ||
-              `For selected mode, choose rows in the table then run complete missing. Last recompute: ${
+              `Last recompute: ${
                 qaCandidates?.generated_at_utc ? new Date(qaCandidates.generated_at_utc).toLocaleString() : "-"
               }.`}
           </div>
         </CardContent>
       </Card>
 
-      <BulkActionBar selectedCount={selectedWordIds.length}>
-        <Button size="sm" onClick={() => openConfirm("selected_words")} disabled={loading || !selectedWordIds.length}>
-          Run complete missing on selected
-        </Button>
-      </BulkActionBar>
-
       <ConfirmDialog
         open={confirmOpen}
         title="Run Complete Missing Fields?"
-        description={`Scope: ${effectiveScope === "selected_words" ? "selected words only" : "all candidates"}. Estimated rows: ${estimatedCount}.`}
-        confirmLabel={loading ? "Running..." : "Run"}
-        onConfirm={runCompleteMissing}
-        onCancel={() => {
-          setConfirmOpen(false);
-          setPendingRunScope(null);
-        }}
+        description={`Mode: ${processAll ? "all candidates" : "selected words only"}. Estimated rows: ${estimatedCount}.`}
+        confirmLabel="Run"
+        onConfirm={launchRun}
+        onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={startNoticeOpen}
+        title="QA job started"
+        description="This job is running in the background. Use Page Jobs or the Jobs tab to track/cancel it."
+        confirmLabel="OK"
+        hideCancel
+        onConfirm={() => setStartNoticeOpen(false)}
+        onCancel={() => setStartNoticeOpen(false)}
       />
     </div>
   );
 }
+

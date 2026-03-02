@@ -9,6 +9,8 @@ const tabs = [
   { label: "QA", href: "/manage/qa", key: "qa" },
   { label: "Validation", href: "/manage/validation", key: "validation" },
   { label: "Feedback", href: "/manage/feedback", key: "feedback" },
+  { label: "Jobs", href: "/manage/jobs", key: "jobs" },
+  { label: "Settings", href: "/manage/settings", key: "settings" },
 ];
 
 export function ManageTabs({ active }) {

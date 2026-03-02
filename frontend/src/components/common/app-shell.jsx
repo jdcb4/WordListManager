@@ -3,7 +3,6 @@ import { Menu, X } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { cn } from "../../lib/utils";
-import { CurrentJobsPanel } from "./current-jobs-panel";
 
 const navGroups = [
   {
@@ -31,7 +30,11 @@ const navGroups = [
   },
   {
     label: "Manage",
-    items: [{ label: "Overview", to: "/manage" }],
+    items: [
+      { label: "Overview", to: "/manage" },
+      { label: "Jobs", to: "/manage/jobs" },
+      { label: "Settings", to: "/manage/settings" },
+    ],
   },
 ];
 
@@ -125,7 +128,6 @@ export function AppShell({ children }) {
             </div>
           </div>
           {children}
-          <CurrentJobsPanel />
         </main>
       </div>
       {mobileNavOpen ? (

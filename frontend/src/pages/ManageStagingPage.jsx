@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { PageHeader } from "../components/common/page-header";
 import { Badge } from "../components/ui/badge";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
@@ -119,12 +120,12 @@ export function ManageStagingPage() {
         title: `Staging: ${action === "approve" ? "Approve" : "Reject"} rows`,
         description: `${idsToReview.length} selected row(s)`,
         source: "/manage/staging",
-        task: () =>
+        task: ({ signal }) =>
           apiPost("/api/v1/manage/staging/review", {
             action,
             staged_word_ids: idsToReview,
             note: "",
-          }),
+          }, { signal }),
       });
       setMessage(`Action ${action} completed. Reviewed: ${data.reviewed}, skipped: ${data.skipped_non_pending}.`);
       await refresh();
@@ -210,6 +211,7 @@ export function ManageStagingPage() {
       />
 
       <ManageTabs active="staging" />
+      <PageJobsPanel source="/manage/staging" />
 
       <Card>
         <CardContent className="space-y-3 pt-4">

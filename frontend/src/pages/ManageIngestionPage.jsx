@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { PageHeader } from "../components/common/page-header";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -10,11 +11,13 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost, apiPostForm } from "../lib/http";
+import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageIngestionPage() {
+  const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
   const [stats, setStats] = useState(null);
   const [stagingSnapshot, setStagingSnapshot] = useState({ batches: [] });
@@ -24,7 +27,6 @@ export function ManageIngestionPage() {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadNote, setUploadNote] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [model, setModel] = useState("google/gemini-2.5-flash-lite");
   const [generateForm, setGenerateForm] = useState({
     word_type: "guessing",
     count: 20,
@@ -76,7 +78,7 @@ export function ManageIngestionPage() {
         title: "Ingestion: Upload file",
         description: uploadFile.name,
         source: "/manage/ingestion",
-        task: () => apiPostForm("/api/v1/manage/staging/upload", formData),
+        task: ({ signal }) => apiPostForm("/api/v1/manage/staging/upload", formData, { signal }),
       });
       setMessage(`Uploaded batch #${result.batch_id} with ${result.total_rows} rows.`);
       setUploadFile(null);
@@ -97,7 +99,8 @@ export function ManageIngestionPage() {
         title: "Ingestion: Generate words",
         description: `${generateForm.count} ${generateForm.word_type} words`,
         source: "/manage/ingestion",
-        task: () => apiPost("/api/v1/manage/ai/generate", { ...generateForm, model }),
+        task: ({ signal }) =>
+          apiPost("/api/v1/manage/ai/generate", { ...generateForm, model: settings.aiModel }, { signal }),
       });
       setMessage(
         `Generated ${data.generated}/${data.requested} rows to staging. Batch #${data.batch_id ?? "-"}.`
@@ -154,6 +157,7 @@ export function ManageIngestionPage() {
       />
 
       <ManageTabs active="ingestion" />
+      <PageJobsPanel source="/manage/ingestion" />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
@@ -182,7 +186,9 @@ export function ManageIngestionPage() {
           <CardContent className="space-y-3 pt-4">
             <h2 className="text-base font-semibold">AI Generate Words</h2>
             <div className="grid gap-2 sm:grid-cols-2">
-              <Input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Model" />
+              <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+                Model: {settings.aiModel}
+              </div>
               <select
                 className="h-9 rounded border border-input bg-white px-3 text-sm"
                 value={generateForm.word_type}

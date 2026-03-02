@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { PageHeader } from "../components/common/page-header";
 import { StatCard } from "../components/common/stat-card";
 import { Button } from "../components/ui/button";
@@ -45,7 +46,7 @@ export function ManagePage() {
         title: action.includes("/publish") ? "Publish dataset" : "Run maintenance action",
         description: action,
         source: "/manage",
-        task: () => apiPost(action, {}),
+        task: ({ signal }) => apiPost(action, {}, { signal }),
       });
       setMessage(stringifyReport(data));
       await refresh();
@@ -89,6 +90,7 @@ export function ManagePage() {
       />
 
       <ManageTabs active="overview" />
+      <PageJobsPanel source="/manage" />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active words" value={dashboard?.total_active_words ?? "..."} />

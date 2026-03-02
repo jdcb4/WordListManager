@@ -1,6 +1,7 @@
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from unittest.mock import patch
 from rest_framework.test import APITestCase
 
 from words.models import (
@@ -170,5 +171,31 @@ class ManageQaCandidatesApiTests(APITestCase):
         row = response.data["results"][0]
         self.assertIn("missing_hint", row["missing_codes"])
         self.assertIn("missing_difficulty", row["missing_codes"])
+
+    @patch("api.views.complete_word_templates")
+    def test_manage_ai_complete_ignores_limit_for_selected_word_ids(self, mock_complete):
+        mock_complete.return_value = {
+            "processed": 3,
+            "suggested": 2,
+            "batches": 1,
+            "batch_id": 10,
+            "staged_rows": 2,
+        }
+        word = WordEntry.objects.create(
+            text="Hammer",
+            word_type=WordType.DESCRIBING,
+            hint="",
+            difficulty="",
+        )
+        response = self.client.post(
+            "/api/v1/manage/ai/complete",
+            data={"word_ids": [word.id], "limit": 1, "model": "test-model"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(mock_complete.called)
+        kwargs = mock_complete.call_args.kwargs
+        self.assertEqual(kwargs["word_ids"], [word.id])
+        self.assertIsNone(kwargs["limit"])
 
 # Create your tests here.

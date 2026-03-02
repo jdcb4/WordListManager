@@ -133,6 +133,7 @@ def home(request):
 
 
 @login_required
+@user_passes_test(lambda user: user.is_staff)
 def manage_dashboard(request):
     react_shell = _react_shell(request, "/manage", manage_scope=True)
     if react_shell:
@@ -162,6 +163,7 @@ def manage_dashboard(request):
 
 
 @login_required
+@user_passes_test(lambda user: user.is_staff)
 def manage_ai(request):
     react_shell = _react_shell(request, "/manage/ai", manage_scope=True)
     if react_shell:
@@ -170,6 +172,7 @@ def manage_ai(request):
 
 
 @login_required
+@user_passes_test(lambda user: user.is_staff)
 def manage_ingestion(request):
     react_shell = _react_shell(request, "/manage/ingestion", manage_scope=True)
     if react_shell:
@@ -178,8 +181,27 @@ def manage_ingestion(request):
 
 
 @login_required
+@user_passes_test(lambda user: user.is_staff)
 def manage_qa(request):
     react_shell = _react_shell(request, "/manage/qa", manage_scope=True)
+    if react_shell:
+        return react_shell
+    return redirect("manage-dashboard")
+
+
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def manage_jobs(request):
+    react_shell = _react_shell(request, "/manage/jobs", manage_scope=True)
+    if react_shell:
+        return react_shell
+    return redirect("manage-dashboard")
+
+
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def manage_settings(request):
+    react_shell = _react_shell(request, "/manage/settings", manage_scope=True)
     if react_shell:
         return react_shell
     return redirect("manage-dashboard")

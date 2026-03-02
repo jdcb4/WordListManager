@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import "./index.css";
 import { AppShell } from "./components/common/app-shell";
+import { AppSettingsProvider } from "./lib/app-settings";
 import { JobTrackerProvider } from "./lib/job-tracker";
 import { LandingPage } from "./pages/LandingPage";
 import { FeedbackPage } from "./pages/FeedbackPage";
@@ -14,13 +15,16 @@ import { ManageValidationPage } from "./pages/ManageValidationPage";
 import { ManageFeedbackPage } from "./pages/ManageFeedbackPage";
 import { ManageAiPage } from "./pages/ManageAiPage";
 import { ManageQaPage } from "./pages/ManageQaPage";
+import { ManageJobsPage } from "./pages/ManageJobsPage";
+import { ManageSettingsPage } from "./pages/ManageSettingsPage";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <JobTrackerProvider>
-        <AppShell>
-          <Routes>
+      <AppSettingsProvider>
+        <JobTrackerProvider>
+          <AppShell>
+            <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/landing" element={<LandingPage />} />
             <Route path="/landing/" element={<LandingPage />} />
@@ -44,12 +48,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/manage/validation/" element={<ManageValidationPage />} />
             <Route path="/manage/ai" element={<ManageAiPage />} />
             <Route path="/manage/ai/" element={<ManageAiPage />} />
-            <Route path="/manage/feedback" element={<ManageFeedbackPage />} />
-            <Route path="/manage/feedback/" element={<ManageFeedbackPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AppShell>
-      </JobTrackerProvider>
+              <Route path="/manage/feedback" element={<ManageFeedbackPage />} />
+              <Route path="/manage/feedback/" element={<ManageFeedbackPage />} />
+              <Route path="/manage/jobs" element={<ManageJobsPage />} />
+              <Route path="/manage/jobs/" element={<ManageJobsPage />} />
+              <Route path="/manage/settings" element={<ManageSettingsPage />} />
+              <Route path="/manage/settings/" element={<ManageSettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AppShell>
+        </JobTrackerProvider>
+      </AppSettingsProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

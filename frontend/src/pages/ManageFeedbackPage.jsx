@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { PageHeader } from "../components/common/page-header";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
@@ -10,10 +11,12 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { apiGet, apiPost } from "../lib/http";
+import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageFeedbackPage() {
+  const { runJob } = useJobTracker();
   const [pending, setPending] = useState([]);
   const [counts, setCounts] = useState({ pending_good_count: 0, pending_bad_count: 0 });
   const [selectedIds, setSelectedIds] = useState([]);
@@ -62,10 +65,20 @@ export function ManageFeedbackPage() {
     setLoading(true);
     setMessage("");
     try {
-      const data = await apiPost("/api/v1/manage/feedback/resolve", {
-        feedback_ids: selectedIds,
-        resolution,
-        note,
+      const data = await runJob({
+        title: "Feedback: Apply resolution",
+        description: `${selectedIds.length} selected row(s)`,
+        source: "/manage/feedback",
+        task: ({ signal }) =>
+          apiPost(
+            "/api/v1/manage/feedback/resolve",
+            {
+              feedback_ids: selectedIds,
+              resolution,
+              note,
+            },
+            { signal }
+          ),
       });
       setMessage(`Processed ${data.processed} item(s). Deactivated words: ${data.deactivated_words}.`);
       setNote("");
@@ -130,6 +143,7 @@ export function ManageFeedbackPage() {
       />
 
       <ManageTabs active="feedback" />
+      <PageJobsPanel source="/manage/feedback" />
 
       <div className="grid gap-3 md:grid-cols-2">
         <Card><CardContent className="pt-4 text-sm">Pending good: <strong>{counts.pending_good_count}</strong></CardContent></Card>

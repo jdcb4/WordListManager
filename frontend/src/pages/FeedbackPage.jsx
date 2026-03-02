@@ -11,11 +11,11 @@ const SWIPE_THRESHOLD = 110;
 const PREFETCH_BATCH_SIZE = 20;
 const PREFETCH_LOW_WATERMARK = 5;
 
-function FieldBlock({ label, value, className = "" }) {
+function FieldBlock({ label, value, className = "", valueClassName = "" }) {
   return (
     <div className={`rounded-xl border border-border bg-white/80 p-3 text-left ${className}`}>
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium text-foreground">{value || "-"}</p>
+      <p className={`mt-1 text-sm font-medium text-foreground ${valueClassName}`}>{value || "-"}</p>
     </div>
   );
 }
@@ -156,7 +156,12 @@ export function FeedbackPage() {
             >
               {word ? (
                 <div className="w-full max-w-[430px] space-y-2">
-                  <FieldBlock label="Word" value={word.word} />
+                  <FieldBlock
+                    label="Word"
+                    value={word.word}
+                    className="bg-white"
+                    valueClassName="text-4xl font-extrabold leading-tight tracking-tight"
+                  />
                   <FieldBlock label="Category" value={word.category} />
                   <FieldBlock label="Difficulty" value={word.difficulty} />
                   <FieldBlock label="Type" value={word.word_type} />

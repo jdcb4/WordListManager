@@ -2,24 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
 import { ManageTabs } from "../components/common/manage-tabs";
+import { PageJobsPanel } from "../components/common/page-jobs-panel";
 import { PageHeader } from "../components/common/page-header";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
-import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
 import { apiGet, apiPost } from "../lib/http";
+import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
 export function ManageValidationPage() {
+  const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
   const [validation, setValidation] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [model, setModel] = useState("google/gemini-2.5-flash-lite");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -65,7 +66,7 @@ export function ManageValidationPage() {
           : "Validation: Apply action",
         description: `${(payload.word_ids || []).length || 0} selected row(s)`,
         source: "/manage/validation",
-        task: () => apiPost(action, payload),
+        task: ({ signal }) => apiPost(action, payload, { signal }),
       });
       if (action.includes("validation/action")) {
         setMessage(`Processed ${data.processed || 0} word(s).`);
@@ -135,7 +136,7 @@ export function ManageValidationPage() {
         description="Review data quality issues, then resolve with deactivation or AI completion into staging."
         primaryAction={
           <Button
-            onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model, word_ids: selectedIds })}
+            onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })}
             disabled={loading || selectedIds.length === 0}
           >
             Complete Missing (Selected)
@@ -156,6 +157,7 @@ export function ManageValidationPage() {
       />
 
       <ManageTabs active="validation" />
+      <PageJobsPanel source="/manage/validation" />
 
       <Card>
         <CardContent className="space-y-3 pt-4">
@@ -163,7 +165,9 @@ export function ManageValidationPage() {
             <Button variant={severityFilter === "all" ? "default" : "outline"} onClick={() => setSeverityFilter("all")}>All ({issues.length})</Button>
             <Button variant={severityFilter === "error" ? "default" : "outline"} onClick={() => setSeverityFilter("error")}>Errors ({validation?.error_count ?? 0})</Button>
             <Button variant={severityFilter === "warning" ? "default" : "outline"} onClick={() => setSeverityFilter("warning")}>Warnings ({validation?.warning_count ?? 0})</Button>
-            <Input value={model} onChange={(event) => setModel(event.target.value)} placeholder="AI model" />
+            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Model: {settings.aiModel}
+            </div>
           </div>
 
           {noIssues ? (
@@ -193,7 +197,7 @@ export function ManageValidationPage() {
         <Button size="sm" variant="destructive" onClick={() => runAction("/api/v1/manage/validation/action", { action: "deactivate", word_ids: selectedIds })} disabled={loading}>
           Deactivate
         </Button>
-        <Button size="sm" onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model, word_ids: selectedIds })} disabled={loading}>
+        <Button size="sm" onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })} disabled={loading}>
           AI complete
         </Button>
       </BulkActionBar>

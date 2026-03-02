@@ -130,8 +130,10 @@ def complete_word_templates(
     queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
     if word_ids:
         queryset = queryset.filter(id__in=word_ids)
-    filtered = queryset.filter(Q(hint="") | Q(difficulty="")).order_by("id")
-    if limit is not None and limit > 0:
+    filtered = queryset.filter(
+        Q(hint="") | Q(hint__isnull=True) | Q(difficulty="") | Q(difficulty__isnull=True)
+    ).order_by("id")
+    if (not word_ids) and limit is not None and limit > 0:
         filtered = filtered[:limit]
     words = list(filtered)
     staged_rows = []

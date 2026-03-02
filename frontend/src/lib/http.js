@@ -5,19 +5,20 @@ function getCookie(name) {
   return "";
 }
 
-export async function apiGet(url) {
-  const response = await fetch(url, { credentials: "include" });
+export async function apiGet(url, options = {}) {
+  const response = await fetch(url, { credentials: "include", signal: options.signal });
   if (!response.ok) {
     throw new Error(`GET ${url} failed with ${response.status}`);
   }
   return response.json();
 }
 
-export async function apiPost(url, body) {
+export async function apiPost(url, body, options = {}) {
   const csrfToken = getCookie("csrftoken");
   const response = await fetch(url, {
     method: "POST",
     credentials: "include",
+    signal: options.signal,
     headers: {
       "Content-Type": "application/json",
       "X-CSRFToken": csrfToken,
@@ -31,11 +32,12 @@ export async function apiPost(url, body) {
   return payload;
 }
 
-export async function apiPostForm(url, formData) {
+export async function apiPostForm(url, formData, options = {}) {
   const csrfToken = getCookie("csrftoken");
   const response = await fetch(url, {
     method: "POST",
     credentials: "include",
+    signal: options.signal,
     headers: {
       "X-CSRFToken": csrfToken,
     },

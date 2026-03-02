@@ -7,6 +7,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   variant = "default",
+  hideCancel = false,
   onConfirm,
   onCancel,
 }) {
@@ -20,9 +21,11 @@ export function ConfirmDialog({
         <h3 className="text-lg font-semibold">{title}</h3>
         {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
         <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
+          {hideCancel ? null : (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              {cancelLabel}
+            </Button>
+          )}
           <Button type="button" variant={variant} onClick={onConfirm}>
             {confirmLabel}
           </Button>

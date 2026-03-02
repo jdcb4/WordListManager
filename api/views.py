@@ -632,18 +632,19 @@ class ManageAICompleteView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request):
+        word_ids = _coerce_id_list(request.data.get("word_ids", []))
         try:
             limit = int(request.data.get("limit", 200))
         except (TypeError, ValueError):
             limit = 200
-        limit = max(1, min(limit, 2000))
-        word_ids = _coerce_id_list(request.data.get("word_ids", []))
+        limit = max(1, min(limit, 10000))
+        effective_limit = None if word_ids else limit
         model = str(request.data.get("model", "")).strip() or DEFAULT_MODEL
         try:
             report = complete_word_templates(
                 word_ids=word_ids or None,
                 model=model,
-                limit=limit,
+                limit=effective_limit,
                 created_by=request.user,
             )
         except AIServiceError as exc:

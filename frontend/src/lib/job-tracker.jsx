@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "wordlist_manager_jobs_v1";
 const JobTrackerContext = createContext(null);
@@ -23,6 +23,7 @@ function safeLoadJobs() {
 
 export function JobTrackerProvider({ children }) {
   const [jobs, setJobs] = useState(() => safeLoadJobs());
+  const controllersRef = useRef(new Map());
 
   useEffect(() => {
     try {
@@ -64,23 +65,55 @@ export function JobTrackerProvider({ children }) {
   );
 
   const dismissJob = useCallback((id) => {
+    const controller = controllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+      controllersRef.current.delete(id);
+    }
     setJobs((prev) => prev.filter((job) => job.id !== id));
   }, []);
+
+  const cancelJob = useCallback((id) => {
+    const controller = controllersRef.current.get(id);
+    if (controller) {
+      controller.abort();
+      controllersRef.current.delete(id);
+    }
+    updateJob(id, {
+      status: "cancelled",
+      message: "Cancelled by user.",
+      endedAt: new Date().toISOString(),
+    });
+  }, [updateJob]);
 
   const clearFinishedJobs = useCallback(() => {
     setJobs((prev) => prev.filter((job) => job.status === "running"));
   }, []);
 
   const runJob = useCallback(
-    async ({ title, description = "", source = "app", task }) => {
+    async ({ title, description = "", source = "app", task, cancellable = true }) => {
       const jobId = startJob({ title, description, source });
+      const controller = cancellable ? new AbortController() : null;
+      if (controller) {
+        controllersRef.current.set(jobId, controller);
+      }
       try {
-        const result = await task();
+        const result = await task({ signal: controller?.signal });
+        if (controller?.signal.aborted) {
+          finishJob(jobId, { status: "cancelled", message: "Cancelled by user." });
+          throw new Error("Job cancelled.");
+        }
         finishJob(jobId, { status: "success" });
         return result;
       } catch (err) {
+        if (controller?.signal.aborted || err?.name === "AbortError") {
+          finishJob(jobId, { status: "cancelled", message: "Cancelled by user." });
+          throw new Error("Job cancelled.");
+        }
         finishJob(jobId, { status: "error", message: String(err) });
         throw err;
+      } finally {
+        controllersRef.current.delete(jobId);
       }
     },
     [finishJob, startJob]
@@ -93,11 +126,12 @@ export function JobTrackerProvider({ children }) {
       startJob,
       updateJob,
       finishJob,
+      cancelJob,
       dismissJob,
       clearFinishedJobs,
       runJob,
     }),
-    [jobs, startJob, updateJob, finishJob, dismissJob, clearFinishedJobs, runJob]
+    [jobs, startJob, updateJob, finishJob, cancelJob, dismissJob, clearFinishedJobs, runJob]
   );
 
   return <JobTrackerContext.Provider value={value}>{children}</JobTrackerContext.Provider>;
