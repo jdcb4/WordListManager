@@ -5,12 +5,13 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
 ## Implemented in this starter
 
 - Core word management models:
-  - `WordEntry` (guessing/describing words)
+  - `WordEntry` (single canonical word row, can support guessing and/or describing)
   - `Category` (configurable admin categories)
   - `Collection` (e.g. Base, Christmas, Kids)
   - `DatasetVersion` (version/checksum for sync checks)
   - `ExportArtifact` (CSV/JSON export metadata)
 - Text sanitization and dedupe key generation.
+- Canonical word consolidation: one definitive row per normalized word.
 - Default categories are seeded as `Who`, `What`, `Where`.
 - Existing words are assigned to `Base` collection.
 - Guessing words require a category (enforced at DB level).
@@ -28,6 +29,7 @@ Word List Manager is a Django + DRF app for managing a canonical word bank used 
     - `GET /api/v1/manage/dashboard`
     - `POST /api/v1/manage/publish`
     - `POST /api/v1/manage/dedupe`
+    - `POST /api/v1/manage/consolidate`
     - `GET /api/v1/manage/feedback/pending`
     - `POST /api/v1/manage/feedback/resolve`
     - `GET /api/v1/manage/staging`
@@ -94,6 +96,8 @@ python manage.py publish_wordlist --report-path ./exports/publish_report.json
 ```bash
 python manage.py dedupe_words --dry-run
 python manage.py dedupe_words
+python manage.py consolidate_words --dry-run
+python manage.py consolidate_words
 ```
 5. Run validation explicitly:
 ```bash
@@ -101,6 +105,15 @@ python manage.py validate_wordlist
 python manage.py validate_wordlist --fail-on-warnings
 ```
 6. Clients check `/api/v1/manifest` weekly and compare `version_number` or `checksum_sha256`.
+
+## Canonical word migration strategy
+
+- Deploy-time: `python manage.py migrate` applies data migrations automatically (including canonical word consolidation).
+- On-demand: staff can trigger consolidation from **Management -> Settings -> Run Consolidation** or via command:
+```bash
+python manage.py consolidate_words
+```
+- Rule used for legacy duplicates: when both guessing/describing rows exist for the same normalized word, describing row data is retained and type suitability is merged.
 
 ## Staging upload format
 
@@ -234,9 +247,8 @@ Separate-host route mapping:
 1. Set environment variables:
    - `DEBUG=false`
    - `SECRET_KEY=<strong random value>`
-   - `ALLOWED_HOSTS=<your Railway app domain>` (ignored by default on Railway unless strict mode is enabled)
+   - `ALLOWED_HOSTS=<your Railway app domain>`
    - `CSRF_TRUSTED_ORIGINS=https://<your Railway app domain>`
-   - `RAILWAY_STRICT_HOST_CHECK=false` (recommended on Railway so internal healthchecks do not get `400`)
    - `WEB_CONCURRENCY=2`
    - `GUNICORN_TIMEOUT=300`
    - `GUNICORN_GRACEFUL_TIMEOUT=30`
@@ -246,9 +258,8 @@ Separate-host route mapping:
    - `/admin/` login works.
 4. Validate exports:
    - `/api/v1/exports/latest.csv` and `/api/v1/exports/latest.json` return files.
-5. After stable go-live, tighten host checks:
-   - Set `RAILWAY_STRICT_HOST_CHECK=true`
-   - Set explicit `ALLOWED_HOSTS=<domain1,domain2>`
+5. Keep host checks explicit:
+   - Set `ALLOWED_HOSTS=<domain1,domain2>`
    - Keep explicit `CSRF_TRUSTED_ORIGINS=https://<domain1>,https://<domain2>`
 
 ## Notes

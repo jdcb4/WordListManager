@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from io import StringIO
 from pathlib import Path
+import random
 
-from django.db.models import Count, Q
+from django.core.management import call_command
+from django.db.models import Count, Max, Min, Q
 from django.http import FileResponse, Http404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import api_view, permission_classes
@@ -34,6 +37,47 @@ from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
 from words.services.staging import create_batch_from_upload, review_staged_word
+
+
+def _word_types_for_entry(word: WordEntry) -> list[str]:
+    values: list[str] = []
+    if word.is_guessing:
+        values.append("guessing")
+    if word.is_describing:
+        values.append("describing")
+    if not values:
+        values.append(word.word_type)
+    return values
+
+
+def _sample_random_active_words(count: int) -> list[WordEntry]:
+    base_queryset = WordEntry.objects.filter(is_active=True).select_related("category", "collection")
+    bounds = base_queryset.aggregate(min_id=Min("id"), max_id=Max("id"))
+    min_id = bounds["min_id"]
+    max_id = bounds["max_id"]
+    if min_id is None or max_id is None:
+        return []
+
+    selected: list[WordEntry] = []
+    seen_ids: set[int] = set()
+    attempts = 0
+    max_attempts = max(12, count * 8)
+    while len(selected) < count and attempts < max_attempts:
+        attempts += 1
+        pivot = random.randint(min_id, max_id)
+        row = base_queryset.filter(id__gte=pivot).order_by("id").first()
+        if row is None:
+            row = base_queryset.order_by("id").first()
+        if row is None or row.id in seen_ids:
+            continue
+        seen_ids.add(row.id)
+        selected.append(row)
+
+    if len(selected) < count:
+        fallback_rows = base_queryset.exclude(id__in=seen_ids).order_by("id")[: count - len(selected)]
+        selected.extend(list(fallback_rows))
+
+    return selected
 
 
 class WordEntryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -67,12 +111,8 @@ def random_words(request):
     except ValueError:
         count = 1
     count = max(1, min(count, 100))
-    queryset = (
-        WordEntry.objects.filter(is_active=True)
-        .select_related("category", "collection")
-        .order_by("?")[:count]
-    )
-    serializer = WordEntrySerializer(queryset, many=True)
+    words = _sample_random_active_words(count)
+    serializer = WordEntrySerializer(words, many=True)
     return Response({"count": count, "results": serializer.data})
 
 
@@ -80,7 +120,10 @@ def random_words(request):
 @permission_classes([permissions.AllowAny])
 def word_stats(request):
     active_words = WordEntry.objects.filter(is_active=True)
-    by_type = dict(active_words.values_list("word_type").annotate(total=Count("id")))
+    by_type = {
+        "guessing": active_words.filter(is_guessing=True).count(),
+        "describing": active_words.filter(is_describing=True).count(),
+    }
     by_difficulty = dict(
         active_words.exclude(difficulty="")
         .values_list("difficulty")
@@ -194,7 +237,7 @@ def _build_staging_preview(staged_word: StagedWord, existing_word: WordEntry | N
     staged_collection = _as_text(staged_word.collection_name) or "Base"
     staged_values = {
         "text": _as_text(staged_word.sanitized_text or staged_word.text),
-        "word_type": _as_text(staged_word.word_type),
+        "types": _as_text(staged_word.word_type),
         "category": staged_category,
         "collection": staged_collection,
         "subcategory": _as_text(staged_word.subcategory),
@@ -216,7 +259,7 @@ def _build_staging_preview(staged_word: StagedWord, existing_word: WordEntry | N
 
     existing_values = {
         "text": _as_text(existing_word.sanitized_text or existing_word.text),
-        "word_type": _as_text(existing_word.word_type),
+        "types": ", ".join(_word_types_for_entry(existing_word)),
         "category": _as_text(existing_word.category.name if existing_word.category else ""),
         "collection": _as_text(existing_word.collection.name if existing_word.collection else ""),
         "subcategory": _as_text(existing_word.subcategory),
@@ -224,6 +267,9 @@ def _build_staging_preview(staged_word: StagedWord, existing_word: WordEntry | N
         "difficulty": _as_text(existing_word.difficulty),
         "is_active": "true" if existing_word.is_active else "false",
     }
+    staged_type_values = set(_word_types_for_entry(existing_word))
+    staged_type_values.add(_as_text(staged_word.word_type))
+    staged_values["types"] = ", ".join(sorted(value for value in staged_type_values if value))
     field_diffs = []
     changed_fields = []
     for field, staged_value in staged_values.items():
@@ -268,19 +314,17 @@ class ManageStagingView(APIView):
 
         total = queryset.count()
         staged_words = list(queryset[:limit])
-        keys = {(word.normalized_text, word.word_type) for word in staged_words}
-        normalized_values = [item[0] for item in keys]
-        type_values = [item[1] for item in keys]
+        normalized_values = list({word.normalized_text for word in staged_words})
         existing_words = (
-            WordEntry.objects.filter(normalized_text__in=normalized_values, word_type__in=type_values)
+            WordEntry.objects.filter(normalized_text__in=normalized_values)
             .select_related("category", "collection")
             .order_by("id")
         )
-        existing_by_key = {(word.normalized_text, word.word_type): word for word in existing_words}
+        existing_by_key = {word.normalized_text: word for word in existing_words}
 
         results = []
         for staged_word in staged_words:
-            existing_word = existing_by_key.get((staged_word.normalized_text, staged_word.word_type))
+            existing_word = existing_by_key.get(staged_word.normalized_text)
             preview = _build_staging_preview(staged_word, existing_word)
             results.append(
                 {
@@ -422,11 +466,10 @@ class ManageDashboardView(APIView):
                     .annotate(total=Count("id"))
                     .order_by("collection__name")
                 ),
-                "types": list(
-                    active_words.values("word_type")
-                    .annotate(total=Count("id"))
-                    .order_by("word_type")
-                ),
+                "types": [
+                    {"word_type": "guessing", "total": active_words.filter(is_guessing=True).count()},
+                    {"word_type": "describing", "total": active_words.filter(is_describing=True).count()},
+                ],
             }
         )
 
@@ -520,6 +563,22 @@ class ManageDedupeView(APIView):
         return Response(report, status=status.HTTP_200_OK)
 
 
+class ManageConsolidateView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        stdout = StringIO()
+        call_command("consolidate_words", stdout=stdout, stderr=stdout)
+        report = dedupe_word_entries(dry_run=True)
+        return Response(
+            {
+                "detail": stdout.getvalue().strip(),
+                "post_check": report,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class ManageValidateView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
@@ -543,6 +602,7 @@ class ManageValidateView(APIView):
                             "id": word.id,
                             "text": word.sanitized_text,
                             "word_type": word.word_type,
+                            "word_types": _word_types_for_entry(word),
                             "category": word.category.name if word.category else "",
                             "collection": word.collection.name if word.collection else "",
                             "difficulty": word.difficulty,
@@ -568,12 +628,14 @@ class ManageQACandidatesView(APIView):
 
         queryset = (
             WordEntry.objects.filter(is_active=True)
+            .filter(Q(hint="") | Q(hint__isnull=True) | Q(difficulty="") | Q(difficulty__isnull=True))
             .select_related("category")
             .order_by("id")
         )
+        total = queryset.count()
 
         candidates = []
-        for word in queryset.iterator():
+        for word in queryset[:limit]:
             missing_codes = []
             if not _as_text(word.hint):
                 missing_codes.append("missing_hint")
@@ -582,22 +644,23 @@ class ManageQACandidatesView(APIView):
             if not missing_codes:
                 continue
             candidates.append(
-                    {
-                        "id": word.id,
-                        "text": word.sanitized_text,
-                        "word_type": word.word_type,
-                        "category": word.category.name if word.category else "",
-                        "difficulty": word.difficulty,
-                        "missing_codes": missing_codes,
-                        "missing_summary": ", ".join(missing_codes),
-                    }
-                )
+                {
+                    "id": word.id,
+                    "text": word.sanitized_text,
+                    "word_type": word.word_type,
+                    "word_types": _word_types_for_entry(word),
+                    "category": word.category.name if word.category else "",
+                    "difficulty": word.difficulty,
+                    "missing_codes": missing_codes,
+                    "missing_summary": ", ".join(missing_codes),
+                }
+            )
 
         return Response(
             {
-                "count": len(candidates),
+                "count": total,
                 "limit": limit,
-                "results": candidates[:limit],
+                "results": candidates,
                 "generated_at_utc": datetime.now(tz=timezone.utc).isoformat(),
             },
             status=status.HTTP_200_OK,

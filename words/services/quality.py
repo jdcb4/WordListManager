@@ -42,7 +42,7 @@ def validate_wordlist() -> dict:
                     message="Word text exceeds 120 characters.",
                 )
             )
-        if word.word_type == WordType.GUESSING and word.category is None:
+        if word.is_guessing and word.category is None:
             issues.append(
                 _issue(
                     severity="error",
@@ -69,7 +69,7 @@ def validate_wordlist() -> dict:
                     message=f"Category '{word.category.name}' is inactive.",
                 )
             )
-        if word.word_type == WordType.GUESSING and not word.hint:
+        if word.is_guessing and not word.hint:
             issues.append(
                 _issue(
                     severity="warning",

@@ -31,6 +31,8 @@ class WordEntryAdmin(admin.ModelAdmin):
     list_display = (
         "sanitized_text",
         "word_type",
+        "is_guessing",
+        "is_describing",
         "category",
         "collection",
         "difficulty",
@@ -38,7 +40,7 @@ class WordEntryAdmin(admin.ModelAdmin):
         "source",
         "updated_at",
     )
-    list_filter = ("word_type", "difficulty", "category", "collection", "is_active")
+    list_filter = ("is_guessing", "is_describing", "difficulty", "category", "collection", "is_active")
     search_fields = ("sanitized_text", "normalized_text", "hint", "subcategory")
     autocomplete_fields = ("category", "collection")
 

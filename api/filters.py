@@ -26,7 +26,15 @@ class WordEntryFilter(django_filters.FilterSet):
         values = _split_csv(value)
         if not values:
             return queryset
-        return queryset.filter(word_type__in=values)
+        query = Q()
+        normalized = {item.strip().lower() for item in values}
+        if "guessing" in normalized:
+            query |= Q(is_guessing=True)
+        if "describing" in normalized:
+            query |= Q(is_describing=True)
+        if not query:
+            return queryset.none()
+        return queryset.filter(query)
 
     def filter_difficulty(self, queryset, _name, value):
         values = _split_csv(value)

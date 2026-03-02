@@ -16,6 +16,13 @@ import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
+function formatWordTypes(word) {
+  if (Array.isArray(word?.word_types) && word.word_types.length) {
+    return word.word_types.join(", ");
+  }
+  return word?.word_type || "-";
+}
+
 export function ManageValidationPage() {
   const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
@@ -117,7 +124,7 @@ export function ManageValidationPage() {
           <div>
             <div className="font-semibold">{word.text}</div>
             <div className="text-xs text-muted-foreground">
-              id:{word.id} | {word.word_type} | {word.category || "-"} | {word.collection || "-"}
+              id:{word.id} | {formatWordTypes(word)} | {word.category || "-"} | {word.collection || "-"}
             </div>
           </div>
         );
@@ -223,7 +230,7 @@ export function ManageValidationPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Word context</p>
                 <div className="mt-1 space-y-1">
                   <p><span className="text-muted-foreground">ID:</span> {activeIssue.word.id}</p>
-                  <p><span className="text-muted-foreground">Type:</span> {activeIssue.word.word_type}</p>
+                  <p><span className="text-muted-foreground">Type:</span> {formatWordTypes(activeIssue.word)}</p>
                   <p><span className="text-muted-foreground">Category:</span> {activeIssue.word.category || "-"}</p>
                   <p><span className="text-muted-foreground">Collection:</span> {activeIssue.word.collection || "-"}</p>
                   <p><span className="text-muted-foreground">Difficulty:</span> {activeIssue.word.difficulty || "-"}</p>

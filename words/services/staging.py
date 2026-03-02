@@ -151,21 +151,35 @@ def review_staged_word(*, staged_word: StagedWord, reviewer, approve: bool, note
         collection, _ = Collection.objects.get_or_create(name=collection_name, defaults={"is_active": True})
         cleaned_text = staged_word.sanitized_text or sanitize_text(staged_word.text)
         cleaned_normalized = staged_word.normalized_text or normalized_key(cleaned_text)
-        defaults = {
-            "text": cleaned_text,
-            "category": category,
-            "collection": collection,
-            "subcategory": staged_word.subcategory,
-            "hint": staged_word.hint,
-            "difficulty": staged_word.difficulty,
-            "is_active": True,
-            "source": f"staging_batch_{staged_word.batch_id}",
-        }
-        word, _ = WordEntry.objects.update_or_create(
-            normalized_text=cleaned_normalized,
-            word_type=staged_word.word_type,
-            defaults=defaults,
-        )
+        word = WordEntry.objects.filter(normalized_text=cleaned_normalized).first()
+        if word is None:
+            word = WordEntry(
+                text=cleaned_text,
+                word_type=staged_word.word_type,
+                is_guessing=(staged_word.word_type == WordType.GUESSING),
+                is_describing=(staged_word.word_type == WordType.DESCRIBING),
+                category=category,
+                collection=collection,
+                subcategory=staged_word.subcategory,
+                hint=staged_word.hint,
+                difficulty=staged_word.difficulty,
+                is_active=True,
+                source=f"staging_batch_{staged_word.batch_id}",
+            )
+        else:
+            word.text = cleaned_text
+            word.collection = collection
+            word.subcategory = staged_word.subcategory
+            word.hint = staged_word.hint
+            word.difficulty = staged_word.difficulty
+            word.is_active = True
+            word.source = f"staging_batch_{staged_word.batch_id}"
+            word.is_guessing = word.is_guessing or staged_word.word_type == WordType.GUESSING
+            word.is_describing = word.is_describing or staged_word.word_type == WordType.DESCRIBING
+            if category is not None:
+                word.category = category
+        word.word_type = WordType.DESCRIBING if word.is_describing else WordType.GUESSING
+        word.save()
         staged_word.status = StagedWordStatus.APPROVED
         staged_word.resulting_word = word
     else:

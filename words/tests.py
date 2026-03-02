@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from words.models import Collection, StagedWordStatus, WordEntry, WordType
+from words.models import Category, Collection, StagedWordStatus, WordEntry, WordType
 from words.services.datasets import publish_dataset
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
@@ -78,5 +78,23 @@ class StagingTests(TestCase):
         batch = create_batch_from_json(file_name="new_words.json", file_bytes=json_bytes)
         self.assertEqual(batch.total_rows, 2)
         self.assertEqual(batch.staged_words.count(), 2)
+
+    def test_approving_second_type_merges_into_existing_word(self):
+        existing = WordEntry.objects.create(
+            text="Helicopter",
+            word_type=WordType.DESCRIBING,
+            is_describing=True,
+            is_guessing=False,
+        )
+        csv_bytes = b"word,word_type,category,hint\nHelicopter,guessing,What,Aircraft\n"
+        batch = create_batch_from_csv(file_name="add_type.csv", file_bytes=csv_bytes)
+        staged = batch.staged_words.first()
+        review_staged_word(staged_word=staged, reviewer=None, approve=True, note="merge type")
+        self.assertEqual(WordEntry.objects.filter(normalized_text=existing.normalized_text).count(), 1)
+        merged = WordEntry.objects.get(id=existing.id)
+        self.assertTrue(merged.is_describing)
+        self.assertTrue(merged.is_guessing)
+        self.assertIsNotNone(merged.category)
+        self.assertEqual(merged.category.name, "What")
 
 # Create your tests here.

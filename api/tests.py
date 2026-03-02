@@ -109,6 +109,11 @@ class ManageStagingApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertIn("batch_id", response.data)
 
+    def test_manage_consolidate_endpoint(self):
+        response = self.client.post("/api/v1/manage/consolidate", data={}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("post_check", response.data)
+
 
 class ManageFeedbackApiTests(APITestCase):
     def setUp(self):

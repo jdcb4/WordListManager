@@ -14,10 +14,18 @@ from words.models import DatasetVersion, ExportArtifact, ExportFormat, WordEntry
 
 
 def _word_to_dict(word: WordEntry) -> dict:
+    word_types = []
+    if word.is_guessing:
+        word_types.append("guessing")
+    if word.is_describing:
+        word_types.append("describing")
+    if not word_types:
+        word_types.append(word.word_type)
     return {
         "id": word.id,
         "word": word.sanitized_text,
         "wordType": word.word_type,
+        "wordTypes": word_types,
         "category": word.category.name if word.category else None,
         "collection": word.collection.name if word.collection else None,
         "subcategory": word.subcategory or None,
@@ -61,6 +69,7 @@ def _write_csv(path: Path, payload: list[dict]) -> None:
         "id",
         "word",
         "wordType",
+        "wordTypes",
         "category",
         "collection",
         "subcategory",
@@ -72,7 +81,12 @@ def _write_csv(path: Path, payload: list[dict]) -> None:
     with path.open("w", encoding="utf-8", newline="") as file_obj:
         writer = csv.DictWriter(file_obj, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(payload)
+        rows = []
+        for item in payload:
+            row = dict(item)
+            row["wordTypes"] = json.dumps(row.get("wordTypes", []), ensure_ascii=False)
+            rows.append(row)
+        writer.writerows(rows)
 
 
 def publish_dataset(force: bool = False) -> tuple[DatasetVersion, bool]:

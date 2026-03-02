@@ -174,6 +174,11 @@ def complete_word_templates(
                 "id": word.id,
                 "word": word.sanitized_text,
                 "word_type": word.word_type,
+                "word_types": (
+                    ["guessing"] if word.is_guessing else []
+                ) + (
+                    ["describing"] if word.is_describing else []
+                ),
                 "category": word.category.name if word.category else "",
                 "collection": word.collection.name if word.collection else "Base",
                 "subcategory": word.subcategory,

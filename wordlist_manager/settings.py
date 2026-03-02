@@ -1,6 +1,7 @@
 """Django settings for wordlist_manager project."""
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -21,16 +22,16 @@ REACT_UI_ENABLED = os.getenv("REACT_UI_ENABLED", "true").strip().lower() == "tru
 REACT_MANAGE_UI_ENABLED = os.getenv("REACT_MANAGE_UI_ENABLED", "false").strip().lower() == "true"
 REACT_UI_BASE_URL = os.getenv("REACT_UI_BASE_URL", "").strip().rstrip("/")
 
+if (
+    not DEBUG
+    and "test" not in sys.argv
+    and os.getenv("RAILWAY_PROJECT_ID")
+    and SECRET_KEY == "dev-secret-key-change-me"
+):
+    raise RuntimeError("SECRET_KEY must be set when DEBUG is false.")
+
 
 def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
-    railway_detected = any(
-        os.getenv(key)
-        for key in ("RAILWAY_PROJECT_ID", "RAILWAY_ENVIRONMENT_ID", "RAILWAY_PUBLIC_DOMAIN")
-    )
-    strict_host_check = os.getenv("RAILWAY_STRICT_HOST_CHECK", "false").strip().lower() == "true"
-    if railway_detected and not strict_host_check:
-        return ["*"]
-
     hosts: list[str] = ["localhost", "127.0.0.1", "[::1]"]
     for part in raw_hosts.split(","):
         candidate = part.strip().strip("\"'")
@@ -48,7 +49,7 @@ def _parse_allowed_hosts(raw_hosts: str) -> list[str]:
     if railway_domain:
         hosts.append(railway_domain)
     deduped = [host for i, host in enumerate(hosts) if host and host not in hosts[:i]]
-    return deduped or ["*"]
+    return deduped
 
 
 def _parse_csrf_trusted_origins(raw_origins: str) -> list[str]:
@@ -171,6 +172,14 @@ LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/manage/"
 LOGOUT_REDIRECT_URL = "/"
 
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
 REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
@@ -182,7 +191,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.BasicAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",

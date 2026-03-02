@@ -131,7 +131,7 @@ export function DataTable({
             ))
           ) : (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-6 text-center text-sm text-muted-foreground">
+              <td colSpan={table.getVisibleLeafColumns().length} className="px-3 py-6 text-center text-sm text-muted-foreground">
                 {emptyText}
               </td>
             </tr>

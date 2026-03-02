@@ -15,6 +15,13 @@ import { apiGet } from "../lib/http";
 const PAGE_SIZE = 100;
 const columnHelper = createColumnHelper();
 
+function formatWordTypes(row) {
+  if (Array.isArray(row?.word_types) && row.word_types.length) {
+    return row.word_types.join(", ");
+  }
+  return row?.word_type || "-";
+}
+
 function MultiSelectHeaderFilter({ options, value, onChange }) {
   return (
     <select
@@ -182,6 +189,7 @@ export function LandingPage() {
           />
         </div>
       ),
+      cell: (ctx) => formatWordTypes(ctx.row.original),
     }),
     columnHelper.accessor("category", {
       id: "category",
@@ -345,7 +353,7 @@ export function LandingPage() {
       >
         {selectedWord ? (
           <dl className="space-y-2 text-sm">
-            <div className="grid grid-cols-[130px_1fr] gap-2"><dt className="text-muted-foreground">Type</dt><dd>{selectedWord.word_type || "-"}</dd></div>
+            <div className="grid grid-cols-[130px_1fr] gap-2"><dt className="text-muted-foreground">Type</dt><dd>{formatWordTypes(selectedWord)}</dd></div>
             <div className="grid grid-cols-[130px_1fr] gap-2"><dt className="text-muted-foreground">Category</dt><dd>{selectedWord.category || "-"}</dd></div>
             <div className="grid grid-cols-[130px_1fr] gap-2"><dt className="text-muted-foreground">Collection</dt><dd>{selectedWord.collection || "-"}</dd></div>
             <div className="grid grid-cols-[130px_1fr] gap-2"><dt className="text-muted-foreground">Subcategory</dt><dd>{selectedWord.subcategory || "-"}</dd></div>

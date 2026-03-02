@@ -112,12 +112,24 @@ class Command(BaseCommand):
                 "hint": sanitize_text(row.get("Hint", "")),
                 "source": source,
                 "is_active": True,
+                "word_type": WordType.GUESSING,
+                "is_guessing": True,
+                "is_describing": False,
             }
-            _, created = WordEntry.objects.update_or_create(
+            word, created = WordEntry.objects.get_or_create(
                 normalized_text=raw_word.casefold(),
-                word_type=WordType.GUESSING,
                 defaults=defaults,
             )
+            if not created:
+                word.text = raw_word
+                word.category = category
+                word.collection = collection
+                word.hint = sanitize_text(row.get("Hint", ""))
+                word.source = source
+                word.is_active = True
+                word.is_guessing = True
+                word.word_type = WordType.DESCRIBING if word.is_describing else WordType.GUESSING
+                word.save()
             if created:
                 stats["created"] += 1
             else:
@@ -141,12 +153,23 @@ class Command(BaseCommand):
                 "difficulty": difficulty,
                 "source": source,
                 "is_active": True,
+                "word_type": WordType.DESCRIBING,
+                "is_guessing": False,
+                "is_describing": True,
             }
-            _, created = WordEntry.objects.update_or_create(
+            word, created = WordEntry.objects.get_or_create(
                 normalized_text=raw_word.casefold(),
-                word_type=WordType.DESCRIBING,
                 defaults=defaults,
             )
+            if not created:
+                word.text = raw_word
+                word.collection = collection
+                word.difficulty = difficulty
+                word.source = source
+                word.is_active = True
+                word.is_describing = True
+                word.word_type = WordType.DESCRIBING
+                word.save()
             if created:
                 stats["created"] += 1
             else:

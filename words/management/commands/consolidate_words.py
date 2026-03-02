@@ -6,13 +6,16 @@ from words.services.maintenance import dedupe_word_entries
 
 
 class Command(BaseCommand):
-    help = "Remove duplicate words by normalized text, preferring describing rows."
+    help = (
+        "Consolidate WordEntry rows into one definitive record per normalized word, "
+        "preferring describing data when duplicates exist."
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Report duplicates without deleting records.",
+            help="Report duplicate groups without deleting records.",
         )
 
     def handle(self, *args, **options):
@@ -26,8 +29,7 @@ class Command(BaseCommand):
             return
         self.stdout.write(
             self.style.SUCCESS(
-                f"Processed {report['groups']} duplicate groups. Deleted {report['deleted_rows']} rows. "
-                f"Merged guessing flags: {report['merged_guessing_flags']}, "
-                f"merged describing flags: {report['merged_describing_flags']}."
+                f"Consolidated {report['groups']} duplicate groups. "
+                f"Deleted {report['deleted_rows']} rows."
             )
         )

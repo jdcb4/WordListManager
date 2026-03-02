@@ -4,13 +4,14 @@ from collections import Counter
 from io import StringIO
 from pathlib import Path
 import re
+import random
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db.models import Count
+from django.db.models import Count, Max, Min
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
@@ -105,7 +106,12 @@ def home(request):
     search = request.GET.get("q", "").strip()
 
     if word_type:
-        queryset = queryset.filter(word_type=word_type)
+        if word_type == "guessing":
+            queryset = queryset.filter(is_guessing=True)
+        elif word_type == "describing":
+            queryset = queryset.filter(is_describing=True)
+        else:
+            queryset = queryset.none()
     if category_name:
         queryset = queryset.filter(category__name=category_name)
     if collection_name:
@@ -140,7 +146,10 @@ def manage_dashboard(request):
         return react_shell
 
     active_words = WordEntry.objects.filter(is_active=True)
-    by_type = list(active_words.values("word_type").annotate(total=Count("id")).order_by("word_type"))
+    by_type = [
+        {"word_type": "guessing", "total": active_words.filter(is_guessing=True).count()},
+        {"word_type": "describing", "total": active_words.filter(is_describing=True).count()},
+    ]
     by_collection = list(
         active_words.values("collection__name").annotate(total=Count("id")).order_by("collection__name")
     )
@@ -264,6 +273,18 @@ def run_manage_dedupe(request: HttpRequest) -> HttpResponse:
         f"Dedupe completed. Groups: {report['groups']}, "
         f"duplicate rows: {report['duplicate_rows']}, deleted: {report['deleted_rows']}.",
     )
+    return redirect("manage-dashboard")
+
+
+@require_POST
+@login_required
+@user_passes_test(lambda user: user.is_staff)
+def run_manage_consolidate(request: HttpRequest) -> HttpResponse:
+    ok, output = _command_output("consolidate_words")
+    if ok:
+        messages.success(request, _shorten(output or "Consolidation completed."))
+    else:
+        messages.error(request, _shorten(output or "Consolidation failed."))
     return redirect("manage-dashboard")
 
 
@@ -422,7 +443,13 @@ def feedback_home(request: HttpRequest) -> HttpResponse:
     if react_shell:
         return react_shell
 
-    word = WordEntry.objects.filter(is_active=True).order_by("?").first()
+    base_queryset = WordEntry.objects.filter(is_active=True)
+    bounds = base_queryset.aggregate(min_id=Min("id"), max_id=Max("id"))
+    if bounds["min_id"] is not None and bounds["max_id"] is not None:
+        pivot = random.randint(bounds["min_id"], bounds["max_id"])
+        word = base_queryset.filter(id__gte=pivot).order_by("id").first() or base_queryset.order_by("id").first()
+    else:
+        word = None
     recent = (
         WordFeedback.objects.filter(reporter_token=request.session.session_key or "")
         .select_related("word")

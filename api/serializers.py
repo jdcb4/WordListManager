@@ -9,6 +9,7 @@ class WordEntrySerializer(serializers.ModelSerializer):
     word = serializers.CharField(source="sanitized_text")
     category = serializers.CharField(source="category.name", default=None)
     collection = serializers.CharField(source="collection.name", default=None)
+    word_types = serializers.SerializerMethodField()
 
     class Meta:
         model = WordEntry
@@ -16,6 +17,7 @@ class WordEntrySerializer(serializers.ModelSerializer):
             "id",
             "word",
             "word_type",
+            "word_types",
             "category",
             "collection",
             "subcategory",
@@ -24,6 +26,16 @@ class WordEntrySerializer(serializers.ModelSerializer):
             "source",
             "updated_at",
         ]
+
+    def get_word_types(self, obj):
+        values = []
+        if obj.is_guessing:
+            values.append("guessing")
+        if obj.is_describing:
+            values.append("describing")
+        if not values:
+            values.append(obj.word_type)
+        return values
 
 
 class ExportArtifactSerializer(serializers.ModelSerializer):

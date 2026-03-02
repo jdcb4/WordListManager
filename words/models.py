@@ -61,6 +61,8 @@ class WordEntry(TimestampedModel):
     sanitized_text = models.CharField(max_length=255, editable=False, db_index=True)
     normalized_text = models.CharField(max_length=255, editable=False, db_index=True)
     word_type = models.CharField(max_length=24, choices=WordType.choices)
+    is_guessing = models.BooleanField(default=False)
+    is_describing = models.BooleanField(default=False)
     category = models.ForeignKey(
         Category,
         null=True,
@@ -85,29 +87,57 @@ class WordEntry(TimestampedModel):
         ordering = ["sanitized_text"]
         constraints = [
             models.UniqueConstraint(
-                fields=["normalized_text", "word_type"],
-                name="uq_wordentry_normalized_word_type",
+                fields=["normalized_text"],
+                name="uq_wordentry_normalized",
             ),
             models.CheckConstraint(
                 check=(
-                    models.Q(word_type=WordType.GUESSING, category__isnull=False)
-                    | ~models.Q(word_type=WordType.GUESSING)
+                    models.Q(is_guessing=True)
+                    | models.Q(is_describing=True)
+                ),
+                name="ck_wordentry_has_type",
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(is_guessing=False)
+                    | models.Q(category__isnull=False)
                 ),
                 name="ck_guessing_requires_category",
             ),
         ]
+
+    @property
+    def word_types(self) -> list[str]:
+        values: list[str] = []
+        if self.is_guessing:
+            values.append(WordType.GUESSING)
+        if self.is_describing:
+            values.append(WordType.DESCRIBING)
+        return values
+
+    def canonical_word_type(self) -> str:
+        # Keep legacy `word_type` populated for backward compatibility.
+        if self.is_describing:
+            return WordType.DESCRIBING
+        return WordType.GUESSING
 
     def save(self, *args, **kwargs):
         self.sanitized_text = sanitize_text(self.text)
         self.normalized_text = normalized_key(self.text)
         self.subcategory = sanitize_text(self.subcategory)
         self.hint = sanitize_text(self.hint)
+        if not self.is_guessing and not self.is_describing:
+            if self.word_type == WordType.DESCRIBING:
+                self.is_describing = True
+            else:
+                self.is_guessing = True
+        self.word_type = self.canonical_word_type()
         if self.collection_id is None:
             self.collection = Collection.get_base()
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.sanitized_text} ({self.word_type})"
+        return f"{self.sanitized_text} ({', '.join(self.word_types)})"
 
 
 class DatasetVersion(TimestampedModel):

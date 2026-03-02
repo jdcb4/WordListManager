@@ -20,6 +20,13 @@ function FieldBlock({ label, value, className = "", valueClassName = "" }) {
   );
 }
 
+function formatWordTypes(word) {
+  if (Array.isArray(word?.word_types) && word.word_types.length) {
+    return word.word_types.join(", ");
+  }
+  return word?.word_type || "-";
+}
+
 export function FeedbackPage() {
   const location = useLocation();
   const isImmersive = location.pathname.includes("/feedback/app") || location.pathname.includes("/feedback/swipe/app");
@@ -163,7 +170,7 @@ export function FeedbackPage() {
                   </div>
                   <FieldBlock label="Category" value={word.category} />
                   <FieldBlock label="Difficulty" value={word.difficulty} />
-                  <FieldBlock label="Type" value={word.word_type} />
+                  <FieldBlock label="Type" value={formatWordTypes(word)} />
                   <FieldBlock label="Hint" value={word.hint} />
                 </div>
               ) : (

@@ -15,6 +15,13 @@ import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
 
+function formatWordTypes(row) {
+  if (Array.isArray(row?.word_types) && row.word_types.length) {
+    return row.word_types.join(", ");
+  }
+  return row?.word_type || "-";
+}
+
 export function ManageQaPage() {
   const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
@@ -115,7 +122,8 @@ export function ManageQaPage() {
     columnHelper.accessor("text", { header: "Word", meta: { filterVariant: "text" } }),
     columnHelper.accessor("word_type", {
       header: "Type",
-      meta: { filterVariant: "select", filterOptions: ["guessing", "describing"] },
+      meta: { filterVariant: "text" },
+      cell: (ctx) => formatWordTypes(ctx.row.original),
     }),
     columnHelper.accessor("category", { header: "Category", meta: { filterVariant: "text" } }),
     columnHelper.accessor("difficulty", {
