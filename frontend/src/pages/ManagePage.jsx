@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageJobsPanel } from "../components/common/page-jobs-panel";
-import { PageHeader } from "../components/common/page-header";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { StatCard } from "../components/common/stat-card";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -68,30 +66,26 @@ export function ManagePage() {
   );
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Management Overview"
-        description="Run publish and maintenance operations. Core workflow: ingest to staging, validate quality, then publish."
-        primaryAction={
-          <Button onClick={() => setPublishOpen(true)} disabled={loading}>
-            Publish Dataset
+    <ManagementPageLayout
+      title="Management Overview"
+      description="Run publish and maintenance operations. Core workflow: ingest to staging, validate quality, then publish."
+      jobsSource="/manage"
+      primaryAction={
+        <Button onClick={() => setPublishOpen(true)} disabled={loading}>
+          Publish Dataset
+        </Button>
+      }
+      secondaryActions={
+        <>
+          <Button variant="outline" onClick={() => runAction("/api/v1/manage/dedupe")} disabled={loading}>
+            Dedupe
           </Button>
-        }
-        secondaryActions={
-          <>
-            <Button variant="outline" onClick={() => runAction("/api/v1/manage/dedupe")} disabled={loading}>
-              Dedupe
-            </Button>
-            <Button variant="outline" onClick={refresh} disabled={loading}>
-              Refresh
-            </Button>
-          </>
-        }
-      />
-
-      <ManageTabs active="overview" />
-      <PageJobsPanel source="/manage" />
-
+          <Button variant="outline" onClick={refresh} disabled={loading}>
+            Refresh
+          </Button>
+        </>
+      }
+    >
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Active words" value={dashboard?.total_active_words ?? "..."} />
         <StatCard label="Dataset version" value={dashboard?.dataset_version ?? "..."} hint="Increments when publish creates a new export." />
@@ -110,7 +104,7 @@ export function ManagePage() {
             <div className="rounded-lg border border-border bg-muted px-3 py-2">Playtest</div>
           </div>
           <div className="rounded-xl border border-border bg-muted p-3 text-sm text-muted-foreground">
-            {message || "Use tabs for ingestion, staging review, QA completion, validation queues, and feedback moderation."}
+            {message || "Use sidebar sections for ingestion, staging review, QA completion, validation queues, and feedback moderation."}
           </div>
         </CardContent>
       </Card>
@@ -123,6 +117,6 @@ export function ManagePage() {
         onConfirm={() => runAction("/api/v1/manage/publish")}
         onCancel={() => setPublishOpen(false)}
       />
-    </div>
+    </ManagementPageLayout>
   );
 }

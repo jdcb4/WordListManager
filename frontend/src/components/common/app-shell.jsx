@@ -10,16 +10,18 @@ const navGroups = [
     items: [{ label: "Word Library", to: "/" }],
   },
   {
-    label: "Ingest",
+    label: "Ingestion",
     items: [
-      { label: "Ingestion", to: "/manage/ingestion" },
-      { label: "Staging", to: "/manage/staging" },
-      { label: "QA Tools", to: "/manage/qa" },
+      { label: "Upload Files", to: "/manage/ingestion/upload" },
+      { label: "AI Generate", to: "/manage/ingestion/generate" },
+      { label: "Batch Monitor", to: "/manage/ingestion/batches" },
+      { label: "Staging Review", to: "/manage/staging" },
     ],
   },
   {
     label: "Quality",
     items: [
+      { label: "QA Tools", to: "/manage/qa" },
       { label: "Validation", to: "/manage/validation" },
       { label: "Feedback Mod", to: "/manage/feedback" },
     ],

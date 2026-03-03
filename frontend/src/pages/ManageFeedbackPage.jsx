@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageJobsPanel } from "../components/common/page-jobs-panel";
-import { PageHeader } from "../components/common/page-header";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
+import { StatusChip } from "../components/ui/status-chip";
+import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet, apiPost } from "../lib/http";
 import { useJobTracker } from "../lib/job-tracker";
 
@@ -98,6 +98,7 @@ export function ManageFeedbackPage() {
         <input
           type="checkbox"
           checked={selectedIds.includes(ctx.row.original.id)}
+          aria-label={`Select feedback ${ctx.row.original.id}`}
           onChange={(event) => {
             event.stopPropagation();
             toggleSelected(ctx.row.original.id);
@@ -109,11 +110,7 @@ export function ManageFeedbackPage() {
     columnHelper.accessor("verdict", {
       header: "Verdict",
       meta: { filterVariant: "select", filterOptions: ["good", "bad"] },
-      cell: (ctx) => (
-        <span className={ctx.getValue() === "bad" ? "font-semibold text-red-700" : "font-semibold text-emerald-700"}>
-          {ctx.getValue()}
-        </span>
-      ),
+      cell: (ctx) => <StatusChip tone={ctx.getValue() === "bad" ? "danger" : "success"}>{ctx.getValue()}</StatusChip>,
     }),
     columnHelper.accessor("comment", {
       header: "Comment",
@@ -126,25 +123,17 @@ export function ManageFeedbackPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Feedback Moderation"
-        description="Process playtest feedback and deactivate low-quality words when needed."
-        primaryAction={
-          <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>
-            Apply Resolution
-          </Button>
-        }
-        secondaryActions={
-          <>
-            <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
-          </>
-        }
-      />
-
-      <ManageTabs active="feedback" />
-      <PageJobsPanel source="/manage/feedback" />
-
+    <ManagementPageLayout
+      title="Feedback Moderation"
+      description="Process playtest feedback and deactivate low-quality words when needed."
+      jobsSource="/manage/feedback"
+      primaryAction={
+        <Button onClick={applyResolution} disabled={loading || selectedIds.length === 0}>
+          Apply Resolution
+        </Button>
+      }
+      secondaryActions={<Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>}
+    >
       <div className="grid gap-3 md:grid-cols-2">
         <Card><CardContent className="pt-4 text-sm">Pending good: <strong>{counts.pending_good_count}</strong></CardContent></Card>
         <Card><CardContent className="pt-4 text-sm">Pending bad: <strong>{counts.pending_bad_count}</strong></CardContent></Card>
@@ -152,19 +141,31 @@ export function ManageFeedbackPage() {
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter by word/comment/verdict" />
-            <select
-              className="h-9 rounded border border-input bg-white px-3 text-sm"
-              value={resolution}
-              onChange={(event) => setResolution(event.target.value)}
-            >
-              <option value="keep">keep</option>
-              <option value="deactivate">deactivate</option>
-              <option value="ignore">ignore</option>
-            </select>
-            <Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Moderator note" />
-          </div>
+          <TableToolbar
+            left={
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Filter by word/comment/verdict" />
+            }
+            right={
+              <>
+                <select
+                  className="h-9 rounded border border-input bg-white px-3 text-sm"
+                  aria-label="Feedback resolution"
+                  value={resolution}
+                  onChange={(event) => setResolution(event.target.value)}
+                >
+                  <option value="keep">keep</option>
+                  <option value="deactivate">deactivate</option>
+                  <option value="ignore">ignore</option>
+                </select>
+                <Input
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Moderator note"
+                  aria-label="Moderator note"
+                />
+              </>
+            }
+          />
 
           {!filteredRows.length ? (
             <EmptyState title="No pending feedback items" description="Feedback queue is clear for current filters." />
@@ -188,6 +189,6 @@ export function ManageFeedbackPage() {
         <Button size="sm" variant="outline" onClick={selectAllInView}>Select all in view</Button>
         <Button size="sm" onClick={applyResolution} disabled={loading}>Apply resolution</Button>
       </BulkActionBar>
-    </div>
+    </ManagementPageLayout>
   );
 }

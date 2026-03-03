@@ -183,7 +183,8 @@ def manage_ai(request):
 @login_required
 @user_passes_test(lambda user: user.is_staff)
 def manage_ingestion(request):
-    react_shell = _react_shell(request, "/manage/ingestion", manage_scope=True)
+    react_target = request.path.rstrip("/") or "/manage/ingestion"
+    react_shell = _react_shell(request, react_target, manage_scope=True)
     if react_shell:
         return react_shell
     return redirect("manage-dashboard")

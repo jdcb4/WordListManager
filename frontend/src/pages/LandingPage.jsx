@@ -10,6 +10,7 @@ import { EmptyState } from "../components/ui/empty-state";
 import { FilterChip } from "../components/ui/filter-chip";
 import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
+import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet } from "../lib/http";
 
 const PAGE_SIZE = 100;
@@ -22,11 +23,12 @@ function formatWordTypes(row) {
   return row?.word_type || "-";
 }
 
-function MultiSelectHeaderFilter({ options, value, onChange }) {
+function MultiSelectHeaderFilter({ options, value, onChange, ariaLabel }) {
   return (
     <select
       multiple
       value={value}
+      aria-label={ariaLabel}
       onChange={(event) =>
         onChange(Array.from(event.target.selectedOptions).map((option) => option.value))
       }
@@ -186,6 +188,7 @@ export function LandingPage() {
             options={["guessing", "describing"]}
             value={filters.word_type}
             onChange={(value) => setFilters((prev) => ({ ...prev, word_type: value }))}
+            ariaLabel="Filter by word type"
           />
         </div>
       ),
@@ -200,6 +203,7 @@ export function LandingPage() {
             options={categoryOptions}
             value={filters.category}
             onChange={(value) => setFilters((prev) => ({ ...prev, category: value }))}
+            ariaLabel="Filter by category"
           />
         </div>
       ),
@@ -214,6 +218,7 @@ export function LandingPage() {
             options={collectionOptions}
             value={filters.collection}
             onChange={(value) => setFilters((prev) => ({ ...prev, collection: value }))}
+            ariaLabel="Filter by collection"
           />
         </div>
       ),
@@ -228,6 +233,7 @@ export function LandingPage() {
             options={["easy", "medium", "hard"]}
             value={filters.difficulty}
             onChange={(value) => setFilters((prev) => ({ ...prev, difficulty: value }))}
+            ariaLabel="Filter by difficulty"
           />
         </div>
       ),
@@ -280,38 +286,47 @@ export function LandingPage() {
 
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <div className="grid gap-2 lg:grid-cols-[2fr_auto_auto]">
-            <Input
-              placeholder="Search word, hint, or phrase"
-              value={filters.q}
-              onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-            />
-            <select
-              className="h-9 rounded-md border border-input bg-white px-3 text-sm"
-              value={density}
-              onChange={(e) => setDensity(e.target.value)}
-            >
-              <option value="comfortable">Comfortable density</option>
-              <option value="compact">Compact density</option>
-            </select>
-            <details className="rounded-md border border-input bg-white px-3 py-1 text-sm">
-              <summary className="cursor-pointer py-1">Columns</summary>
-              <div className="space-y-1 py-2">
-                {columns.map((column) => (
-                  <label key={column.id} className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={columnVisibility[column.id] !== false}
-                      onChange={(event) =>
-                        setColumnVisibility((prev) => ({ ...prev, [column.id]: event.target.checked }))
-                      }
-                    />
-                    <span>{column.id}</span>
-                  </label>
-                ))}
-              </div>
-            </details>
-          </div>
+          <TableToolbar
+            left={
+              <Input
+                aria-label="Search words"
+                placeholder="Search word, hint, or phrase"
+                value={filters.q}
+                onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
+              />
+            }
+            right={
+              <>
+                <select
+                  className="h-9 rounded-md border border-input bg-white px-3 text-sm"
+                  aria-label="Table density"
+                  value={density}
+                  onChange={(e) => setDensity(e.target.value)}
+                >
+                  <option value="comfortable">Comfortable density</option>
+                  <option value="compact">Compact density</option>
+                </select>
+                <details className="rounded-md border border-input bg-white px-3 py-1 text-sm">
+                  <summary className="cursor-pointer py-1">Columns</summary>
+                  <div className="space-y-1 py-2">
+                    {columns.map((column) => (
+                      <label key={column.id} className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          aria-label={`Toggle column ${column.id}`}
+                          checked={columnVisibility[column.id] !== false}
+                          onChange={(event) =>
+                            setColumnVisibility((prev) => ({ ...prev, [column.id]: event.target.checked }))
+                          }
+                        />
+                        <span>{column.id}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
+              </>
+            }
+          />
 
           <FilterChipRow filters={filters} setFilters={setFilters} />
 

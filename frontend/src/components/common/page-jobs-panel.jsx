@@ -1,12 +1,13 @@
 import { Button } from "../ui/button";
+import { StatusChip } from "../ui/status-chip";
 import { useJobTracker } from "../../lib/job-tracker";
 
-function tone(status) {
-  if (status === "running") return "text-sky-700";
-  if (status === "success") return "text-emerald-700";
-  if (status === "cancelled") return "text-amber-700";
-  if (status === "error") return "text-red-700";
-  return "text-muted-foreground";
+function statusTone(status) {
+  if (status === "running") return "info";
+  if (status === "success") return "success";
+  if (status === "cancelled") return "warning";
+  if (status === "error") return "danger";
+  return "neutral";
 }
 
 export function PageJobsPanel({ source }) {
@@ -30,7 +31,9 @@ export function PageJobsPanel({ source }) {
               <div>
                 <div className="font-medium">{job.title}</div>
                 {job.description ? <div className="text-xs text-muted-foreground">{job.description}</div> : null}
-                <div className={`text-xs font-semibold ${tone(job.status)}`}>{job.status}</div>
+                <StatusChip tone={statusTone(job.status)} className="mt-1 text-[11px] uppercase">
+                  {job.status}
+                </StatusChip>
               </div>
               <div className="flex gap-1">
                 {job.status === "running" ? (
@@ -51,4 +54,3 @@ export function PageJobsPanel({ source }) {
     </div>
   );
 }
-

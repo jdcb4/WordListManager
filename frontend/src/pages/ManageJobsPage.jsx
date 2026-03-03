@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageHeader } from "../components/common/page-header";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
+import { StatusChip } from "../components/ui/status-chip";
+import { TableToolbar } from "../components/ui/table-toolbar";
 import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
@@ -26,6 +27,20 @@ export function ManageJobsPage() {
     columnHelper.accessor("status", {
       header: "Status",
       meta: { filterVariant: "select", filterOptions: ["running", "success", "cancelled", "error"] },
+      cell: (ctx) => {
+        const status = ctx.getValue();
+        const tone =
+          status === "running"
+            ? "info"
+            : status === "success"
+              ? "success"
+              : status === "cancelled"
+                ? "warning"
+                : status === "error"
+                  ? "danger"
+                  : "neutral";
+        return <StatusChip tone={tone}>{status}</StatusChip>;
+      },
     }),
     columnHelper.accessor("startedAt", {
       header: "Started",
@@ -52,32 +67,37 @@ export function ManageJobsPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Jobs"
-        description="Track background jobs and cancel running jobs when needed."
-        primaryAction={
-          <Button variant="outline" onClick={clearFinishedJobs}>
-            Clear finished
-          </Button>
-        }
-      />
-
-      <ManageTabs active="jobs" />
-
+    <ManagementPageLayout
+      title="Jobs"
+      description="Track background jobs and cancel running jobs when needed."
+      primaryAction={
+        <Button variant="outline" onClick={clearFinishedJobs}>
+          Clear finished
+        </Button>
+      }
+    >
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <div className="flex flex-wrap gap-2">
-            {["all", "running", "success", "cancelled", "error"].map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? "default" : "outline"}
-                onClick={() => setStatusFilter(status)}
-              >
-                {status}
-              </Button>
-            ))}
-          </div>
+          <TableToolbar
+            left={
+              <>
+                {["all", "running", "success", "cancelled", "error"].map((status) => (
+                  <Button
+                    key={status}
+                    variant={statusFilter === status ? "default" : "outline"}
+                    onClick={() => setStatusFilter(status)}
+                  >
+                    {status}
+                  </Button>
+                ))}
+              </>
+            }
+            right={
+              <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                Showing {filteredJobs.length} of {jobs.length}
+              </div>
+            }
+          />
           {!filteredJobs.length ? (
             <EmptyState title="No tracked jobs" description="Run a task from management pages to populate this list." />
           ) : (
@@ -91,7 +111,6 @@ export function ManageJobsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </ManagementPageLayout>
   );
 }
-

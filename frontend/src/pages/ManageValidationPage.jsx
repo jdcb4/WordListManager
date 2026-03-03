@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageJobsPanel } from "../components/common/page-jobs-panel";
-import { PageHeader } from "../components/common/page-header";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { SideDrawer } from "../components/ui/side-drawer";
+import { StatusChip } from "../components/ui/status-chip";
+import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet, apiPost } from "../lib/http";
 import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
@@ -97,6 +97,7 @@ export function ManageValidationPage() {
           <input
             type="checkbox"
             checked={selectedIds.includes(ctx.row.original.word_id)}
+            aria-label={`Select validation word ${ctx.row.original.word_id}`}
             onChange={(event) => {
               event.stopPropagation();
               toggleSelect(ctx.row.original.word_id);
@@ -107,11 +108,7 @@ export function ManageValidationPage() {
     columnHelper.accessor("severity", {
       header: "Severity",
       meta: { filterVariant: "select", filterOptions: ["error", "warning"] },
-      cell: (ctx) => (
-        <span className={ctx.getValue() === "error" ? "text-red-700 font-semibold" : "text-amber-700 font-semibold"}>
-          {ctx.getValue()}
-        </span>
-      ),
+      cell: (ctx) => <StatusChip tone={ctx.getValue() === "error" ? "danger" : "warning"}>{ctx.getValue()}</StatusChip>,
     }),
     columnHelper.accessor("code", { header: "Code", meta: { filterVariant: "text" } }),
     columnHelper.display({
@@ -137,45 +134,47 @@ export function ManageValidationPage() {
   const noFilteredIssues = !noIssues && filteredIssues.length === 0;
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Validation Queue"
-        description="Review data quality issues, then resolve with deactivation or AI completion into staging."
-        primaryAction={
+    <ManagementPageLayout
+      title="Validation Queue"
+      description="Review data quality issues, then resolve with deactivation or AI completion into staging."
+      jobsSource="/manage/validation"
+      primaryAction={
+        <Button
+          onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })}
+          disabled={loading || selectedIds.length === 0}
+        >
+          Complete Missing (Selected)
+        </Button>
+      }
+      secondaryActions={
+        <>
           <Button
-            onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })}
+            variant="destructive"
+            onClick={() => runAction("/api/v1/manage/validation/action", { action: "deactivate", word_ids: selectedIds })}
             disabled={loading || selectedIds.length === 0}
           >
-            Complete Missing (Selected)
+            Deactivate Selected
           </Button>
-        }
-        secondaryActions={
-          <>
-            <Button
-              variant="destructive"
-              onClick={() => runAction("/api/v1/manage/validation/action", { action: "deactivate", word_ids: selectedIds })}
-              disabled={loading || selectedIds.length === 0}
-            >
-              Deactivate Selected
-            </Button>
-            <Button variant="outline" onClick={refresh}>Refresh</Button>
-          </>
-        }
-      />
-
-      <ManageTabs active="validation" />
-      <PageJobsPanel source="/manage/validation" />
-
+          <Button variant="outline" onClick={refresh}>Refresh</Button>
+        </>
+      }
+    >
       <Card>
         <CardContent className="space-y-3 pt-4">
-          <div className="grid gap-2 md:grid-cols-[auto_auto_auto_1fr]">
-            <Button variant={severityFilter === "all" ? "default" : "outline"} onClick={() => setSeverityFilter("all")}>All ({issues.length})</Button>
-            <Button variant={severityFilter === "error" ? "default" : "outline"} onClick={() => setSeverityFilter("error")}>Errors ({validation?.error_count ?? 0})</Button>
-            <Button variant={severityFilter === "warning" ? "default" : "outline"} onClick={() => setSeverityFilter("warning")}>Warnings ({validation?.warning_count ?? 0})</Button>
-            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Model: {settings.aiModel}
-            </div>
-          </div>
+          <TableToolbar
+            left={
+              <>
+                <Button variant={severityFilter === "all" ? "default" : "outline"} onClick={() => setSeverityFilter("all")}>All ({issues.length})</Button>
+                <Button variant={severityFilter === "error" ? "default" : "outline"} onClick={() => setSeverityFilter("error")}>Errors ({validation?.error_count ?? 0})</Button>
+                <Button variant={severityFilter === "warning" ? "default" : "outline"} onClick={() => setSeverityFilter("warning")}>Warnings ({validation?.warning_count ?? 0})</Button>
+              </>
+            }
+            right={
+              <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                Model: {settings.aiModel}
+              </div>
+            }
+          />
 
           {noIssues ? (
             <EmptyState title="No issues found" description="Validation is clean for the current dataset." />
@@ -240,6 +239,6 @@ export function ManageValidationPage() {
           </div>
         ) : null}
       </SideDrawer>
-    </div>
+    </ManagementPageLayout>
   );
 }

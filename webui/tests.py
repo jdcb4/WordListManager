@@ -132,6 +132,24 @@ class ManagementBulkActionTests(TestCase):
         self.assertEqual(response["Location"], "http://localhost:5173/manage/ingestion")
 
     @override_settings(REACT_MANAGE_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_manage_ingestion_upload_redirects_to_react_when_enabled(self):
+        response = self.client.get("/manage/ingestion/upload/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/manage/ingestion/upload")
+
+    @override_settings(REACT_MANAGE_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_manage_ingestion_generate_redirects_to_react_when_enabled(self):
+        response = self.client.get("/manage/ingestion/generate/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/manage/ingestion/generate")
+
+    @override_settings(REACT_MANAGE_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
+    def test_manage_ingestion_batches_redirects_to_react_when_enabled(self):
+        response = self.client.get("/manage/ingestion/batches/")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "http://localhost:5173/manage/ingestion/batches")
+
+    @override_settings(REACT_MANAGE_UI_ENABLED=True, REACT_UI_BASE_URL="http://localhost:5173")
     def test_manage_qa_redirects_to_react_when_enabled(self):
         response = self.client.get("/manage/qa/")
         self.assertEqual(response.status_code, 302)

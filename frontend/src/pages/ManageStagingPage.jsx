@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageJobsPanel } from "../components/common/page-jobs-panel";
-import { PageHeader } from "../components/common/page-header";
-import { Badge } from "../components/ui/badge";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { BulkActionBar } from "../components/ui/bulk-action-bar";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -12,6 +9,8 @@ import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
 import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
+import { StatusChip } from "../components/ui/status-chip";
+import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet, apiPost } from "../lib/http";
 import { useJobTracker } from "../lib/job-tracker";
 
@@ -144,6 +143,7 @@ export function ManageStagingPage() {
         <input
           type="checkbox"
           checked={selectedStagedIds.includes(ctx.row.original.id)}
+          aria-label={`Select staged row ${ctx.row.original.id}`}
           onChange={(event) => {
             event.stopPropagation();
             toggleStagedSelect(ctx.row.original.id);
@@ -170,8 +170,8 @@ export function ManageStagingPage() {
       meta: { filterVariant: "select", filterOptions: ["Create (New)", "Update"] },
       cell: (ctx) => {
         const preview = ctx.row.original.preview;
-        if (preview.is_new) return <Badge className="bg-emerald-100 text-emerald-800">Create (New)</Badge>;
-        return <Badge className="bg-amber-100 text-amber-800">Update ({preview.changed_fields.length} changes)</Badge>;
+        if (preview.is_new) return <StatusChip tone="success">Create (New)</StatusChip>;
+        return <StatusChip tone="warning">Update ({preview.changed_fields.length} changes)</StatusChip>;
       },
     }),
     columnHelper.accessor((row) => `#${row.batch.id}`, {
@@ -191,32 +191,28 @@ export function ManageStagingPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Staging Review"
-        description="Queue-style review for imported and AI-generated entries. Shortcuts: J/K move, A approve, R reject."
-        primaryAction={
-          <Button onClick={() => runStagingReview("approve")} disabled={loading || (!selectedStagedIds.length && !activeStagedId)}>
-            Approve
+    <ManagementPageLayout
+      title="Staging Review"
+      description="Queue-style review for imported and AI-generated entries. Shortcuts: J/K move, A approve, R reject."
+      jobsSource="/manage/staging"
+      primaryAction={
+        <Button onClick={() => runStagingReview("approve")} disabled={loading || (!selectedStagedIds.length && !activeStagedId)}>
+          Approve
+        </Button>
+      }
+      secondaryActions={
+        <>
+          <Button variant="destructive" onClick={() => runStagingReview("reject")} disabled={loading || (!selectedStagedIds.length && !activeStagedId)}>
+            Reject
           </Button>
-        }
-        secondaryActions={
-          <>
-            <Button variant="destructive" onClick={() => runStagingReview("reject")} disabled={loading || (!selectedStagedIds.length && !activeStagedId)}>
-              Reject
-            </Button>
-            <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
-          </>
-        }
-      />
-
-      <ManageTabs active="staging" />
-      <PageJobsPanel source="/manage/staging" />
-
+          <Button variant="outline" onClick={refresh} disabled={loading}>Refresh</Button>
+        </>
+      }
+    >
       <Card>
         <CardContent className="space-y-3 pt-4">
           <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-            Ingestion is managed in the Ingestion tab. This tab is review + decision only.
+            Ingestion is handled in Upload Files and AI Generate. This page is review and decision only.
           </div>
 
           <div className="rounded-lg border border-border bg-card p-3">
@@ -236,40 +232,47 @@ export function ManageStagingPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {["pending", "approved", "rejected", ""].map((status) => (
-              <Button
-                key={status || "all"}
-                variant={stagingFilters.status === status ? "default" : "outline"}
-                onClick={() => setStagingFilters((prev) => ({ ...prev, status }))}
-              >
-                {status || "all"}
-              </Button>
-            ))}
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <select
-              className="h-9 rounded border border-input bg-white px-3 text-sm"
-              value={stagingFilters.batch_id}
-              onChange={(event) => setStagingFilters((prev) => ({ ...prev, batch_id: event.target.value }))}
-            >
-              <option value="">all batches</option>
-              {(staging?.batches || []).map((batch) => (
-                <option key={batch.id} value={batch.id}>#{batch.id} {batch.source_filename}</option>
-              ))}
-            </select>
-            <Input
-              type="number"
-              min="1"
-              max="500"
-              value={stagingFilters.limit}
-              onChange={(event) => setStagingFilters((prev) => ({ ...prev, limit: Number(event.target.value || 200) }))}
-            />
-            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              Showing {rows.length} of {staging?.total || 0}
-            </div>
-          </div>
+          <TableToolbar
+            left={
+              <>
+                {["pending", "approved", "rejected", ""].map((status) => (
+                  <Button
+                    key={status || "all"}
+                    variant={stagingFilters.status === status ? "default" : "outline"}
+                    onClick={() => setStagingFilters((prev) => ({ ...prev, status }))}
+                  >
+                    {status || "all"}
+                  </Button>
+                ))}
+              </>
+            }
+            right={
+              <>
+                <select
+                  className="h-9 rounded border border-input bg-white px-3 text-sm"
+                  aria-label="Staging batch filter"
+                  value={stagingFilters.batch_id}
+                  onChange={(event) => setStagingFilters((prev) => ({ ...prev, batch_id: event.target.value }))}
+                >
+                  <option value="">all batches</option>
+                  {(staging?.batches || []).map((batch) => (
+                    <option key={batch.id} value={batch.id}>#{batch.id} {batch.source_filename}</option>
+                  ))}
+                </select>
+                <Input
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={stagingFilters.limit}
+                  aria-label="Staging row limit"
+                  onChange={(event) => setStagingFilters((prev) => ({ ...prev, limit: Number(event.target.value || 200) }))}
+                />
+                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                  Showing {rows.length} of {staging?.total || 0}
+                </div>
+              </>
+            }
+          />
 
           {!rows.length ? (
             <EmptyState title="No staged rows" description="Upload CSV/JSON or run AI generation to populate this queue." />
@@ -320,6 +323,6 @@ export function ManageStagingPage() {
           </div>
         ) : null}
       </SideDrawer>
-    </div>
+    </ManagementPageLayout>
   );
 }

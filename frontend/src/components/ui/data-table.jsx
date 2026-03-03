@@ -48,6 +48,13 @@ export function DataTable({
   const cellPadding = density === "compact" ? "px-2 py-1.5" : "px-3 py-2.5";
   const headerPadding = density === "compact" ? "px-2 py-1.5" : "px-3 py-2";
 
+  function filterLabelForHeader(header) {
+    const meta = header.column.columnDef.meta || {};
+    if (meta.filterLabel) return String(meta.filterLabel);
+    if (typeof header.column.columnDef.header === "string") return header.column.columnDef.header;
+    return header.column.id || "column";
+  }
+
   return (
     <div className={cn("overflow-auto rounded-xl border border-border bg-card", className)}>
       <table className="min-w-full text-sm">
@@ -78,6 +85,7 @@ export function DataTable({
                         <th key={`${header.id}-filter`} className={cn(headerPadding, "text-left")}>
                           <select
                             className="h-8 w-full rounded border border-input bg-white px-2 text-xs"
+                            aria-label={`Filter ${filterLabelForHeader(header)}`}
                             value={header.column.getFilterValue() ?? ""}
                             onChange={(event) =>
                               header.column.setFilterValue(event.target.value || undefined)
@@ -98,6 +106,7 @@ export function DataTable({
                         <input
                           type="text"
                           className="h-8 w-full rounded border border-input bg-white px-2 text-xs"
+                          aria-label={`Filter ${filterLabelForHeader(header)}`}
                           value={header.column.getFilterValue() ?? ""}
                           onChange={(event) => header.column.setFilterValue(event.target.value)}
                           placeholder="Filter..."
@@ -116,7 +125,7 @@ export function DataTable({
               <tr
                 key={row.id}
                 className={cn(
-                  "border-t border-border align-top transition hover:bg-muted/35",
+                  "border-t border-border align-top transition odd:bg-white even:bg-muted/10 hover:bg-muted/35",
                   onRowClick ? "cursor-pointer" : "",
                   typeof rowClassName === "function" ? rowClassName(row.original) : rowClassName
                 )}

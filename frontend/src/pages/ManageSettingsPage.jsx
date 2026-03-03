@@ -1,8 +1,6 @@
 import { useState } from "react";
 
-import { ManageTabs } from "../components/common/manage-tabs";
-import { PageJobsPanel } from "../components/common/page-jobs-panel";
-import { PageHeader } from "../components/common/page-header";
+import { ManagementPageLayout } from "../components/common/management-page-layout";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -37,28 +35,24 @@ export function ManageSettingsPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Settings"
-        description="Global management settings used by AI tools."
-        primaryAction={<Button onClick={save}>Save settings</Button>}
-        secondaryActions={
-          <Button
-            variant="outline"
-            onClick={() => {
-              resetSettings();
-              setDraftModel("google/gemini-2.5-flash-lite");
-              setMessage("Reset to defaults.");
-            }}
-          >
-            Reset defaults
-          </Button>
-        }
-      />
-
-      <ManageTabs active="settings" />
-      <PageJobsPanel source="/manage/settings" />
-
+    <ManagementPageLayout
+      title="Settings"
+      description="Global management settings used by AI tools."
+      jobsSource="/manage/settings"
+      primaryAction={<Button onClick={save}>Save settings</Button>}
+      secondaryActions={
+        <Button
+          variant="outline"
+          onClick={() => {
+            resetSettings();
+            setDraftModel("google/gemini-2.5-flash-lite");
+            setMessage("Reset to defaults.");
+          }}
+        >
+          Reset defaults
+        </Button>
+      }
+    >
       <Card>
         <CardContent className="space-y-3 pt-4">
           <h2 className="text-base font-semibold">AI Model</h2>
@@ -81,6 +75,6 @@ export function ManageSettingsPage() {
           </Button>
         </CardContent>
       </Card>
-    </div>
+    </ManagementPageLayout>
   );
 }
