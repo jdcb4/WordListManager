@@ -90,6 +90,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'wordlist_manager.middleware.HealthcheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
