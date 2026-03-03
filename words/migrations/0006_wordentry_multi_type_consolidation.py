@@ -83,6 +83,10 @@ def noop(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    # This migration performs large data rewrites/deletes and then schema changes
+    # on the same table. Running non-atomically avoids PostgreSQL "pending trigger
+    # events" errors during ALTER TABLE statements.
+    atomic = False
 
     dependencies = [
         ("words", "0005_collection_stagedword_collection_name_and_more"),
