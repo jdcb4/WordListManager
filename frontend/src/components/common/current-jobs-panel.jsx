@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../ui/button";
+import { StatusChip } from "../ui/status-chip";
 import { useJobTracker } from "../../lib/job-tracker";
 
 function statusTone(status) {
-  if (status === "running") return "text-sky-700";
-  if (status === "success") return "text-emerald-700";
-  if (status === "error") return "text-red-700";
-  return "text-muted-foreground";
+  if (status === "running") return "info";
+  if (status === "success") return "success";
+  if (status === "cancelled") return "warning";
+  if (status === "error") return "danger";
+  return "neutral";
 }
 
 export function CurrentJobsPanel() {
@@ -66,14 +68,14 @@ export function CurrentJobsPanel() {
                         Dismiss
                       </button>
                     </div>
-                    <div className={`mt-1 text-xs font-semibold ${statusTone(job.status)}`}>
+                    <StatusChip tone={statusTone(job.status)} className="mt-1 text-[11px] uppercase">
                       {job.status}
-                    </div>
+                    </StatusChip>
                     {job.source ? (
                       <div className="mt-1 text-[11px] text-muted-foreground">Source: {job.source}</div>
                     ) : null}
                     {job.message ? (
-                      <div className="mt-1 text-xs text-red-700">{job.message}</div>
+                      <div className="mt-1 text-xs text-danger">{job.message}</div>
                     ) : null}
                   </div>
                 ))}

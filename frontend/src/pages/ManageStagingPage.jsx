@@ -282,7 +282,7 @@ export function ManageStagingPage() {
               data={rows}
               density="compact"
               enableColumnFilters
-              rowClassName={(row) => (row.id === activeStagedId ? "bg-sky-50" : "")}
+              rowClassName={(row) => (row.id === activeStagedId ? "bg-info-soft/70" : "")}
               onRowClick={(row) => setActiveStagedId(row.id)}
             />
           )}
@@ -311,7 +311,7 @@ export function ManageStagingPage() {
             {activeRow.preview.fields.map((fieldDiff) => (
               <div
                 key={`${activeRow.id}-${fieldDiff.field}`}
-                className={fieldDiff.changed ? "rounded-lg border border-amber-300 bg-amber-50 p-3" : "rounded-lg border border-border bg-white p-3"}
+                className={fieldDiff.changed ? "rounded-lg border border-warning-border bg-warning-soft p-3" : "rounded-lg border border-border bg-white p-3"}
               >
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{fieldDiff.field}</p>
                 <div className="mt-1 text-sm">

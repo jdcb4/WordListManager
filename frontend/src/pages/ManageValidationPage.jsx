@@ -187,7 +187,7 @@ export function ManageValidationPage() {
               density="compact"
               enableColumnFilters
               onRowClick={setActiveIssue}
-              rowClassName={(row) => (activeIssue?.code === row.code && activeIssue?.word_id === row.word_id ? "bg-sky-50" : "")}
+              rowClassName={(row) => (activeIssue?.code === row.code && activeIssue?.word_id === row.word_id ? "bg-info-soft/70" : "")}
               emptyText="No validation issues found."
             />
           )}

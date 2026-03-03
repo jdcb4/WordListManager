@@ -4,6 +4,7 @@ import { ManagementPageLayout } from "../components/common/management-page-layou
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
+import { StatusChip } from "../components/ui/status-chip";
 import { apiPost } from "../lib/http";
 import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
@@ -13,10 +14,12 @@ export function ManageSettingsPage() {
   const { runJob } = useJobTracker();
   const [draftModel, setDraftModel] = useState(settings.aiModel);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState("success");
 
   function save() {
     setAiModel(draftModel);
     setMessage("Saved.");
+    setMessageTone("success");
   }
 
   async function runConsolidation() {
@@ -29,8 +32,10 @@ export function ManageSettingsPage() {
         task: ({ signal }) => apiPost("/api/v1/manage/consolidate", {}, { signal }),
       });
       setMessage(result.detail || "Consolidation completed.");
+      setMessageTone("success");
     } catch (err) {
       setMessage(String(err));
+      setMessageTone("danger");
     }
   }
 
@@ -60,7 +65,11 @@ export function ManageSettingsPage() {
           <p className="text-xs text-muted-foreground">
             Used by QA complete-missing and ingestion generation.
           </p>
-          {message ? <p className="text-xs text-emerald-700">{message}</p> : null}
+          {message ? (
+            <StatusChip tone={messageTone} className="w-fit text-xs font-medium">
+              {message}
+            </StatusChip>
+          ) : null}
         </CardContent>
       </Card>
 

@@ -330,7 +330,7 @@ export function LandingPage() {
 
           <FilterChipRow filters={filters} setFilters={setFilters} />
 
-          {error ? <div className="text-sm text-red-700">{error}</div> : null}
+          {error ? <div className="text-sm text-danger">{error}</div> : null}
           {loading ? <div className="text-sm">Loading...</div> : null}
 
           {!loading && !rows.length ? (

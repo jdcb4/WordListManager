@@ -150,7 +150,7 @@ export function FeedbackPage() {
       <CardContent className="space-y-4 pt-4">
           <div className="mx-auto w-full max-w-lg">
             <div
-              className="flex h-[520px] select-none items-center justify-center rounded-3xl border border-slate-300 bg-gradient-to-br from-slate-100 via-white to-slate-200 p-6 text-center shadow-xl"
+              className="flex h-[520px] select-none items-center justify-center rounded-3xl border border-border bg-gradient-to-br from-muted via-white to-muted p-6 text-center shadow-xl"
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
@@ -163,8 +163,8 @@ export function FeedbackPage() {
             >
               {word ? (
                 <div className="grid w-full max-w-[430px] grid-cols-2 auto-rows-[76px] gap-2">
-                  <div className="col-span-2 row-span-2 flex items-center justify-center rounded-xl border border-sky-200 bg-gradient-to-br from-white via-sky-50 to-sky-100 px-4 shadow-lg">
-                    <p className="text-center text-5xl font-extrabold leading-tight tracking-tight text-slate-900">
+                  <div className="col-span-2 row-span-2 flex items-center justify-center rounded-xl border border-info-border bg-gradient-to-br from-white via-info-soft to-muted px-4 shadow-lg">
+                    <p className="text-center text-5xl font-extrabold leading-tight tracking-tight text-foreground">
                       {word.word || "-"}
                     </p>
                   </div>

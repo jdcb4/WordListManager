@@ -5,22 +5,47 @@ export default {
   theme: {
     extend: {
       colors: {
-        border: "hsl(200 12% 82%)",
-        input: "hsl(200 12% 82%)",
-        ring: "hsl(188 70% 33%)",
-        background: "hsl(44 30% 95%)",
-        foreground: "hsl(202 23% 16%)",
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(188 70% 33%)",
-          foreground: "hsl(0 0% 100%)",
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
         },
         muted: {
-          DEFAULT: "hsl(203 18% 94%)",
-          foreground: "hsl(207 12% 42%)",
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
         },
         card: {
-          DEFAULT: "hsl(0 0% 100%)",
-          foreground: "hsl(202 23% 16%)",
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          soft: "hsl(var(--success-soft))",
+          border: "hsl(var(--success-border))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          soft: "hsl(var(--warning-soft))",
+          border: "hsl(var(--warning-border))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          soft: "hsl(var(--danger-soft))",
+          border: "hsl(var(--danger-border))",
+          foreground: "hsl(var(--danger-foreground))",
+          on: "hsl(var(--danger-on))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          soft: "hsl(var(--info-soft))",
+          border: "hsl(var(--info-border))",
+          foreground: "hsl(var(--info-foreground))",
         },
       },
       borderRadius: {

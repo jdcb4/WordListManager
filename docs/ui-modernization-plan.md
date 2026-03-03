@@ -215,8 +215,12 @@ Current `ManageIngestionPage` combines three distinct workflows. Split into:
 - Completed: Phase 1 (sidebar-first navigation + removal of in-page manage tabs).
 - Completed: Phase 2 (shared `ManagementPageLayout` + `TableToolbar` across management pages).
 - Completed: Phase 3 (split ingestion into Upload / AI Generate / Batch Monitor pages).
-- In progress: Phase 4 (table standardization and accessibility labels):
+- Completed: Phase 4 (table standardization and accessibility labels):
   - Shared status rendering via `StatusChip` across jobs, staging/validation/feedback, and batch tables.
   - Added explicit `aria-label` attributes for management checkboxes and select controls.
   - Unified table row striping and filter control accessibility labels in `DataTable`.
-- Next: Phase 5 (visual token hardening and spacing/typography audit on remaining non-management pages).
+- Completed: Phase 5 baseline hardening:
+  - Added semantic design tokens in theme (`success`, `warning`, `danger`, `info`) and aligned Tailwind colors to CSS variables.
+  - Replaced remaining hardcoded status/alert color classes with semantic token usage across pages/components.
+  - Applied tokenized styling updates in `Button`, `StatusChip`, `LandingPage`, `FeedbackPage`, and management highlights/messages.
+- Next: run a dedicated desktop/mobile viewport QA sweep and capture any spacing/typography edge-case fixes.

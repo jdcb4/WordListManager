@@ -10,10 +10,28 @@
     --card-foreground: 222 19% 17%;
     --primary: 197 78% 37%;
     --primary-foreground: 0 0% 100%;
+    --ring: 197 78% 37%;
     --muted: 210 25% 95%;
     --muted-foreground: 218 11% 40%;
     --border: 214 22% 88%;
     --input: 214 22% 88%;
+    --success: 156 72% 28%;
+    --success-soft: 156 61% 94%;
+    --success-border: 156 40% 80%;
+    --success-foreground: 156 72% 28%;
+    --warning: 35 92% 40%;
+    --warning-soft: 45 100% 94%;
+    --warning-border: 38 70% 79%;
+    --warning-foreground: 35 92% 32%;
+    --danger: 0 72% 44%;
+    --danger-soft: 0 86% 95%;
+    --danger-border: 0 63% 82%;
+    --danger-foreground: 0 72% 36%;
+    --danger-on: 0 0% 100%;
+    --info: 199 89% 40%;
+    --info-soft: 202 100% 95%;
+    --info-border: 201 72% 82%;
+    --info-foreground: 199 89% 34%;
   }
 }
 

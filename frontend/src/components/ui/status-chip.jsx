@@ -2,10 +2,10 @@ import { Badge } from "./badge";
 import { cn } from "../../lib/utils";
 
 const STATUS_STYLES = {
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  danger: "border-red-200 bg-red-50 text-red-800",
-  info: "border-sky-200 bg-sky-50 text-sky-800",
+  success: "border-success-border bg-success-soft text-success-foreground",
+  warning: "border-warning-border bg-warning-soft text-warning-foreground",
+  danger: "border-danger-border bg-danger-soft text-danger-foreground",
+  info: "border-info-border bg-info-soft text-info-foreground",
   neutral: "border-border bg-muted text-foreground",
 };
 
