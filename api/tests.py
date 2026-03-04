@@ -35,6 +35,13 @@ class ApiSmokeTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
+    def test_word_list_q_search_param(self):
+        WordEntry.objects.create(text="Alpha Centauri", word_type=WordType.DESCRIBING)
+        response = self.client.get("/api/v1/words/?q=alpha")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["word"], "Alpha Centauri")
+
     def test_feedback_create_endpoint(self):
         word = WordEntry.objects.first()
         response = self.client.post(
@@ -202,5 +209,50 @@ class ManageQaCandidatesApiTests(APITestCase):
         kwargs = mock_complete.call_args.kwargs
         self.assertEqual(kwargs["word_ids"], [word.id])
         self.assertIsNone(kwargs["limit"])
+
+
+class ManageValidationApiTests(APITestCase):
+    def setUp(self):
+        self.staff_user = User.objects.create_user(
+            username="admin_validation_api",
+            password="password123",
+            is_staff=True,
+        )
+        self.client.force_authenticate(user=self.staff_user)
+
+    def test_acknowledged_warning_is_hidden_on_next_validation(self):
+        where, _ = Category.objects.get_or_create(name="Where")
+        word = WordEntry.objects.create(
+            text="Sydney Harbour",
+            word_type=WordType.GUESSING,
+            category=where,
+            hint="",
+        )
+
+        first_report = self.client.get("/api/v1/manage/validate")
+        self.assertEqual(first_report.status_code, 200)
+        self.assertTrue(
+            any(
+                issue["code"] == "missing_hint" and issue["word_id"] == word.id
+                for issue in first_report.data["issues"]
+            )
+        )
+
+        ack_response = self.client.post(
+            "/api/v1/manage/validation/acknowledge",
+            data={"issues": [{"word_id": word.id, "code": "missing_hint"}]},
+            format="json",
+        )
+        self.assertEqual(ack_response.status_code, 200)
+        self.assertEqual(ack_response.data["acknowledged"], 1)
+
+        second_report = self.client.get("/api/v1/manage/validate")
+        self.assertEqual(second_report.status_code, 200)
+        self.assertFalse(
+            any(
+                issue["code"] == "missing_hint" and issue["word_id"] == word.id
+                for issue in second_report.data["issues"]
+            )
+        )
 
 # Create your tests here.

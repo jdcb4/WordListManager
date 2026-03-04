@@ -233,6 +233,35 @@ class WordFeedback(TimestampedModel):
         )
 
 
+class ValidationIssueAcknowledgement(TimestampedModel):
+    word = models.ForeignKey(
+        WordEntry,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="validation_acknowledgements",
+    )
+    severity = models.CharField(max_length=16, default="warning")
+    code = models.CharField(max_length=64)
+    acknowledged_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="validation_acknowledgements",
+    )
+    note = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["word", "severity", "code"],
+                name="uq_validation_ack_word_severity_code",
+            )
+        ]
+
+
 class ImportBatchStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     IN_REVIEW = "in_review", "In Review"

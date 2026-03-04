@@ -301,26 +301,40 @@ def generate_words(
             f"Category '{requested_category}' is not an active schema category. "
             f"Allowed categories: {allowed_display}."
         )
+    binding_category = canonical_requested_category if word_type == "guessing" else ""
 
     system_prompt = (
         "You generate words for party games. Return strict JSON only. "
         "Return exactly the requested number of unique items. "
-        "For guessing words, category must be one of allowed categories."
+        "For guessing words, category must be one of allowed categories. "
+        "If a binding category is provided, every item must clearly and unambiguously fit that category."
     )
     request_spec = {
         "count": count,
         "word_type": word_type,
         "category": canonical_requested_category or requested_category,
+        "binding_category": binding_category,
         "subcategory": subcategory,
         "difficulty": difficulty,
         "collection": canonical_requested_collection,
         "allowed_categories": list(allowed_categories.values()),
         "allowed_collections": list(allowed_collections.values()) or ["Base"],
+        "hard_constraints": [
+            "Return strict JSON only.",
+            "Return exactly count items unless impossible.",
+            "Items must be unique.",
+            (
+                f"For guessing words, every item must semantically fit category '{binding_category}'."
+                if binding_category
+                else "For guessing words, each item must semantically fit its category value."
+            ),
+        ],
     }
     user_prompt = (
         "Generate word entries for staging.\n"
         "Output JSON: {\"items\":[{\"word\":str,\"word_type\":str,\"category\":str,"
         "\"subcategory\":str,\"hint\":str,\"difficulty\":str,\"collection\":str}]}\n"
+        "Treat all hard constraints as binding.\n"
         f"Spec:\n{json.dumps(request_spec, ensure_ascii=False)}"
     )
     response = _chat_json(system_prompt=system_prompt, user_prompt=user_prompt, model=model or DEFAULT_MODEL)

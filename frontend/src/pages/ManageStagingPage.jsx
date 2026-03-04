@@ -7,10 +7,8 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { DataTable } from "../components/ui/data-table";
 import { EmptyState } from "../components/ui/empty-state";
-import { Input } from "../components/ui/input";
 import { SideDrawer } from "../components/ui/side-drawer";
 import { StatusChip } from "../components/ui/status-chip";
-import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet, apiPost } from "../lib/http";
 import { useJobTracker } from "../lib/job-tracker";
 
@@ -18,8 +16,7 @@ const columnHelper = createColumnHelper();
 
 export function ManageStagingPage() {
   const { runJob } = useJobTracker();
-  const [staging, setStaging] = useState({ total: 0, results: [], batches: [] });
-  const [stagingFilters, setStagingFilters] = useState({ status: "pending", batch_id: "", limit: 200 });
+  const [staging, setStaging] = useState({ total: 0, results: [] });
   const [selectedStagedIds, setSelectedStagedIds] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,23 +24,22 @@ export function ManageStagingPage() {
 
   const rows = staging?.results || [];
   const activeRow = rows.find((row) => row.id === activeStagedId) || null;
-  const batchStats = useMemo(() => {
-    const batches = staging?.batches || [];
-    const total = batches.length;
-    const completed = batches.filter((batch) => batch.status === "completed").length;
-    const inReview = batches.filter((batch) => batch.status === "in_review").length;
-    const pending = batches.filter((batch) => batch.status === "pending").length;
-    const percent = total ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, inReview, pending, percent };
-  }, [staging]);
+  const statusOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.status).filter(Boolean))),
+    [rows]
+  );
+  const sourceOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.batch?.source_filename).filter(Boolean))),
+    [rows]
+  );
+  const batchOptions = useMemo(
+    () => Array.from(new Set(rows.map((row) => `#${row.batch?.id}`).filter(Boolean))),
+    [rows]
+  );
 
   async function refresh() {
     try {
-      const params = new URLSearchParams();
-      if (stagingFilters.status) params.set("status", stagingFilters.status);
-      if (stagingFilters.batch_id) params.set("batch_id", stagingFilters.batch_id);
-      params.set("limit", String(stagingFilters.limit || 200));
-      const data = await apiGet(`/api/v1/manage/staging?${params.toString()}`);
+      const data = await apiGet("/api/v1/manage/staging");
       setStaging(data);
       setSelectedStagedIds([]);
       setActiveStagedId((current) =>
@@ -56,7 +52,7 @@ export function ManageStagingPage() {
 
   useEffect(() => {
     refresh();
-  }, [stagingFilters.status, stagingFilters.batch_id, stagingFilters.limit]);
+  }, []);
 
   useEffect(() => {
     function onKeyDown(event) {
@@ -151,6 +147,21 @@ export function ManageStagingPage() {
         />
       ),
     }),
+    columnHelper.accessor("status", {
+      id: "status",
+      header: "Status",
+      meta: { filterVariant: "select", filterOptions: statusOptions },
+      cell: (ctx) => {
+        const value = ctx.getValue();
+        const tone = value === "approved" ? "success" : value === "rejected" ? "danger" : "warning";
+        return <StatusChip tone={tone}>{value}</StatusChip>;
+      },
+    }),
+    columnHelper.accessor((row) => row.batch?.source_filename || "-", {
+      id: "source",
+      header: "Source",
+      meta: { filterVariant: "select", filterOptions: sourceOptions },
+    }),
     columnHelper.accessor("word", {
       id: "word",
       header: "Word",
@@ -177,10 +188,7 @@ export function ManageStagingPage() {
     columnHelper.accessor((row) => `#${row.batch.id}`, {
       id: "batch",
       header: "Batch",
-      meta: {
-        filterVariant: "select",
-        filterOptions: Array.from(new Set(rows.map((row) => `#${row.batch.id}`))),
-      },
+      meta: { filterVariant: "select", filterOptions: batchOptions },
       cell: (ctx) => ctx.getValue(),
     }),
     columnHelper.accessor("created_at", {
@@ -215,64 +223,9 @@ export function ManageStagingPage() {
             Ingestion is handled in Upload Files and AI Generate. This page is review and decision only.
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-sm font-medium">
-                Batch progress: {batchStats.completed} of {batchStats.total || 0} batches completed
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Pending: {batchStats.pending} | In review: {batchStats.inReview}
-              </div>
-            </div>
-            <div className="mt-2 h-2 w-full rounded-full bg-muted">
-              <div
-                className="h-2 rounded-full bg-primary transition-all"
-                style={{ width: `${batchStats.percent}%` }}
-              />
-            </div>
+          <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+            Showing {rows.length} of {staging?.total || 0}
           </div>
-
-          <TableToolbar
-            left={
-              <>
-                {["pending", "approved", "rejected", ""].map((status) => (
-                  <Button
-                    key={status || "all"}
-                    variant={stagingFilters.status === status ? "default" : "outline"}
-                    onClick={() => setStagingFilters((prev) => ({ ...prev, status }))}
-                  >
-                    {status || "all"}
-                  </Button>
-                ))}
-              </>
-            }
-            right={
-              <>
-                <select
-                  className="h-9 rounded border border-input bg-white px-3 text-sm"
-                  aria-label="Staging batch filter"
-                  value={stagingFilters.batch_id}
-                  onChange={(event) => setStagingFilters((prev) => ({ ...prev, batch_id: event.target.value }))}
-                >
-                  <option value="">all batches</option>
-                  {(staging?.batches || []).map((batch) => (
-                    <option key={batch.id} value={batch.id}>#{batch.id} {batch.source_filename}</option>
-                  ))}
-                </select>
-                <Input
-                  type="number"
-                  min="1"
-                  max="500"
-                  value={stagingFilters.limit}
-                  aria-label="Staging row limit"
-                  onChange={(event) => setStagingFilters((prev) => ({ ...prev, limit: Number(event.target.value || 200) }))}
-                />
-                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
-                  Showing {rows.length} of {staging?.total || 0}
-                </div>
-              </>
-            }
-          />
 
           {!rows.length ? (
             <EmptyState title="No staged rows" description="Upload CSV/JSON or run AI generation to populate this queue." />

@@ -11,7 +11,6 @@ import { SideDrawer } from "../components/ui/side-drawer";
 import { StatusChip } from "../components/ui/status-chip";
 import { TableToolbar } from "../components/ui/table-toolbar";
 import { apiGet, apiPost } from "../lib/http";
-import { useAppSettings } from "../lib/app-settings";
 import { useJobTracker } from "../lib/job-tracker";
 
 const columnHelper = createColumnHelper();
@@ -24,26 +23,35 @@ function formatWordTypes(word) {
 }
 
 export function ManageValidationPage() {
-  const { settings } = useAppSettings();
   const { runJob } = useJobTracker();
   const [validation, setValidation] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectedIssueKeys, setSelectedIssueKeys] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState("all");
   const [activeIssue, setActiveIssue] = useState(null);
 
   const issues = validation?.issues || [];
-  const filteredIssues = useMemo(
-    () => (severityFilter === "all" ? issues : issues.filter((issue) => issue.severity === severityFilter)),
-    [issues, severityFilter]
+  const selectedIssues = useMemo(
+    () => issues.filter((issue) => selectedIssueKeys.includes(issue.issue_key)),
+    [issues, selectedIssueKeys]
+  );
+  const selectedWordIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          selectedIssues
+            .map((issue) => issue.word_id)
+            .filter((value) => Number.isInteger(value))
+        )
+      ),
+    [selectedIssues]
   );
 
   async function refresh() {
     try {
       const data = await apiGet("/api/v1/manage/validate");
       setValidation(data);
-      setSelectedIds([]);
+      setSelectedIssueKeys([]);
       setActiveIssue(data.issues?.[0] || null);
     } catch (err) {
       setMessage(String(err));
@@ -54,32 +62,70 @@ export function ManageValidationPage() {
     refresh();
   }, []);
 
-  function toggleSelect(id) {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+  function toggleSelect(issueKey) {
+    setSelectedIssueKeys((prev) =>
+      prev.includes(issueKey) ? prev.filter((value) => value !== issueKey) : [...prev, issueKey]
+    );
   }
 
-  function selectAllFiltered() {
-    const ids = filteredIssues.map((row) => row.word_id).filter((value) => Number.isInteger(value));
-    setSelectedIds(Array.from(new Set(ids)));
+  function selectAllVisible() {
+    setSelectedIssueKeys(issues.map((issue) => issue.issue_key));
   }
 
-  async function runAction(action, payload = {}) {
+  async function runWordAction(action) {
+    if (!selectedWordIds.length) {
+      setMessage("Select one or more word-linked issues first.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const payload = { action, word_ids: selectedWordIds };
+      const data = await runJob({
+        title: action === "ai_complete" ? "Validation: AI complete selected" : "Validation: Deactivate selected",
+        description: `${selectedWordIds.length} selected word(s)`,
+        source: "/manage/validation",
+        task: ({ signal }) => apiPost("/api/v1/manage/validation/action", payload, { signal }),
+      });
+      if (action === "deactivate") {
+        setMessage(`Deactivated ${data.updated || 0} word(s).`);
+      } else {
+        const report = data.report || {};
+        setMessage(
+          `AI completion processed ${report.processed || 0}, suggested ${report.suggested || 0}, staged ${report.staged_rows || 0}.`
+        );
+      }
+      await refresh();
+    } catch (err) {
+      setMessage(String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function acknowledgeWarnings() {
+    const warningIssues = selectedIssues
+      .filter((issue) => issue.severity === "warning" && Number.isInteger(issue.word_id))
+      .map((issue) => ({ word_id: issue.word_id, code: issue.code }));
+    if (!warningIssues.length) {
+      setMessage("Select one or more warning rows linked to words.");
+      return;
+    }
     setLoading(true);
     setMessage("");
     try {
       const data = await runJob({
-        title: action.includes("ai_complete")
-          ? "Validation: AI complete selected"
-          : "Validation: Apply action",
-        description: `${(payload.word_ids || []).length || 0} selected row(s)`,
+        title: "Validation: Acknowledge warnings",
+        description: `${warningIssues.length} warning row(s)`,
         source: "/manage/validation",
-        task: ({ signal }) => apiPost(action, payload, { signal }),
+        task: ({ signal }) =>
+          apiPost(
+            "/api/v1/manage/validation/acknowledge",
+            { issues: warningIssues },
+            { signal }
+          ),
       });
-      if (action.includes("validation/action")) {
-        setMessage(`Processed ${data.processed || 0} word(s).`);
-      } else {
-        setMessage(JSON.stringify(data));
-      }
+      setMessage(`Acknowledged ${data.acknowledged || 0} warning(s).`);
       await refresh();
     } catch (err) {
       setMessage(String(err));
@@ -92,18 +138,17 @@ export function ManageValidationPage() {
     columnHelper.display({
       id: "select",
       header: "Select",
-      cell: (ctx) =>
-        ctx.row.original.word_id ? (
-          <input
-            type="checkbox"
-            checked={selectedIds.includes(ctx.row.original.word_id)}
-            aria-label={`Select validation word ${ctx.row.original.word_id}`}
-            onChange={(event) => {
-              event.stopPropagation();
-              toggleSelect(ctx.row.original.word_id);
-            }}
-          />
-        ) : null,
+      cell: (ctx) => (
+        <input
+          type="checkbox"
+          checked={selectedIssueKeys.includes(ctx.row.original.issue_key)}
+          aria-label={`Select validation issue ${ctx.row.original.issue_key}`}
+          onChange={(event) => {
+            event.stopPropagation();
+            toggleSelect(ctx.row.original.issue_key);
+          }}
+        />
+      ),
     }),
     columnHelper.accessor("severity", {
       header: "Severity",
@@ -127,32 +172,27 @@ export function ManageValidationPage() {
         );
       },
     }),
-    columnHelper.accessor("message", { header: "Message" }),
+    columnHelper.accessor("message", { header: "Message", meta: { filterVariant: "text" } }),
   ];
 
   const noIssues = issues.length === 0;
-  const noFilteredIssues = !noIssues && filteredIssues.length === 0;
 
   return (
     <ManagementPageLayout
       title="Validation Queue"
-      description="Review data quality issues, then resolve with deactivation or AI completion into staging."
+      description="Review data quality issues, deactivate or AI-complete selected words, and acknowledge accepted warnings."
       jobsSource="/manage/validation"
       primaryAction={
-        <Button
-          onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })}
-          disabled={loading || selectedIds.length === 0}
-        >
+        <Button onClick={() => runWordAction("ai_complete")} disabled={loading || selectedWordIds.length === 0}>
           Complete Missing (Selected)
         </Button>
       }
       secondaryActions={
         <>
-          <Button
-            variant="destructive"
-            onClick={() => runAction("/api/v1/manage/validation/action", { action: "deactivate", word_ids: selectedIds })}
-            disabled={loading || selectedIds.length === 0}
-          >
+          <Button variant="outline" onClick={acknowledgeWarnings} disabled={loading || !selectedIssueKeys.length}>
+            Acknowledge Warnings
+          </Button>
+          <Button variant="destructive" onClick={() => runWordAction("deactivate")} disabled={loading || selectedWordIds.length === 0}>
             Deactivate Selected
           </Button>
           <Button variant="outline" onClick={refresh}>Refresh</Button>
@@ -164,46 +204,48 @@ export function ManageValidationPage() {
           <TableToolbar
             left={
               <>
-                <Button variant={severityFilter === "all" ? "default" : "outline"} onClick={() => setSeverityFilter("all")}>All ({issues.length})</Button>
-                <Button variant={severityFilter === "error" ? "default" : "outline"} onClick={() => setSeverityFilter("error")}>Errors ({validation?.error_count ?? 0})</Button>
-                <Button variant={severityFilter === "warning" ? "default" : "outline"} onClick={() => setSeverityFilter("warning")}>Warnings ({validation?.warning_count ?? 0})</Button>
+                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                  Errors: {validation?.error_count ?? 0}
+                </div>
+                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                  Warnings: {validation?.warning_count ?? 0}
+                </div>
               </>
             }
             right={
               <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
-                Model: {settings.aiModel}
+                Selected rows: {selectedIssueKeys.length}
               </div>
             }
           />
 
           {noIssues ? (
             <EmptyState title="No issues found" description="Validation is clean for the current dataset." />
-          ) : noFilteredIssues ? (
-            <EmptyState title="No issues match this filter" description="Switch severity tabs to see other issue types." />
           ) : (
             <DataTable
               columns={columns}
-              data={filteredIssues.slice(0, 1000)}
+              data={issues.slice(0, 1000)}
               density="compact"
               enableColumnFilters
               onRowClick={setActiveIssue}
-              rowClassName={(row) => (activeIssue?.code === row.code && activeIssue?.word_id === row.word_id ? "bg-info-soft/70" : "")}
+              rowClassName={(row) => (activeIssue?.issue_key === row.issue_key ? "bg-info-soft/70" : "")}
               emptyText="No validation issues found."
             />
           )}
 
           <div className="rounded-md border border-border bg-muted p-3 text-xs">
-            {message || "Select rows and run an action. AI completion writes updates to staging for review."}
+            {message || "Use table filters for severity/code. Acknowledged warnings will not reappear for the same word/code."}
           </div>
         </CardContent>
       </Card>
 
-      <BulkActionBar selectedCount={selectedIds.length}>
-        <Button size="sm" variant="outline" onClick={selectAllFiltered}>Select all in view</Button>
-        <Button size="sm" variant="destructive" onClick={() => runAction("/api/v1/manage/validation/action", { action: "deactivate", word_ids: selectedIds })} disabled={loading}>
+      <BulkActionBar selectedCount={selectedIssueKeys.length}>
+        <Button size="sm" variant="outline" onClick={selectAllVisible}>Select all in view</Button>
+        <Button size="sm" variant="outline" onClick={acknowledgeWarnings} disabled={loading}>Acknowledge</Button>
+        <Button size="sm" variant="destructive" onClick={() => runWordAction("deactivate")} disabled={loading}>
           Deactivate
         </Button>
-        <Button size="sm" onClick={() => runAction("/api/v1/manage/validation/action", { action: "ai_complete", model: settings.aiModel, word_ids: selectedIds })} disabled={loading}>
+        <Button size="sm" onClick={() => runWordAction("ai_complete")} disabled={loading}>
           AI complete
         </Button>
       </BulkActionBar>

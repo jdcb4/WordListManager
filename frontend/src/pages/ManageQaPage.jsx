@@ -26,10 +26,10 @@ export function ManageQaPage() {
   const { runJob } = useJobTracker();
   const [qaCandidates, setQaCandidates] = useState({ count: 0, results: [], generated_at_utc: null });
   const [selectedWordIds, setSelectedWordIds] = useState([]);
-  const [processAll, setProcessAll] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [startNoticeOpen, setStartNoticeOpen] = useState(false);
+  const [runMode, setRunMode] = useState("selected");
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -47,7 +47,8 @@ export function ManageQaPage() {
   }, []);
 
   const candidateRows = useMemo(() => qaCandidates?.results || [], [qaCandidates]);
-  const estimatedCount = processAll ? qaCandidates?.count || 0 : selectedWordIds.length;
+  const selectedCount = selectedWordIds.length;
+  const estimatedCount = runMode === "all" ? qaCandidates?.count || 0 : selectedCount;
 
   function toggleSelected(id) {
     setSelectedWordIds((prev) =>
@@ -63,22 +64,23 @@ export function ManageQaPage() {
     setSelectedWordIds([]);
   }
 
-  async function runCompleteMissing() {
+  async function runCompleteMissing(mode) {
     setLoading(true);
     setMessage("");
     try {
-      const payload = processAll
-        ? {
-            model: settings.aiModel,
-            limit: Math.max(qaCandidates?.count || 0, 1),
-          }
-        : {
-            model: settings.aiModel,
-            word_ids: selectedWordIds,
-          };
+      const payload =
+        mode === "all"
+          ? {
+              model: settings.aiModel,
+              limit: Math.max(qaCandidates?.count || 0, 1),
+            }
+          : {
+              model: settings.aiModel,
+              word_ids: selectedWordIds,
+            };
       const data = await runJob({
         title: "QA: Complete Missing Fields",
-        description: processAll ? "All candidates" : `${selectedWordIds.length} selected candidates`,
+        description: mode === "all" ? "All candidates" : `${selectedWordIds.length} selected candidates`,
         source: "/manage/qa",
         task: ({ signal }) => apiPost("/api/v1/manage/ai/complete", payload, { signal }),
       });
@@ -97,10 +99,15 @@ export function ManageQaPage() {
     }
   }
 
+  function openRunConfirm(mode) {
+    setRunMode(mode);
+    setConfirmOpen(true);
+  }
+
   function launchRun() {
     setConfirmOpen(false);
     setStartNoticeOpen(true);
-    void runCompleteMissing();
+    void runCompleteMissing(runMode);
   }
 
   const columns = [
@@ -141,23 +148,20 @@ export function ManageQaPage() {
       jobsSource="/manage/qa"
       primaryAction={
         <Button
-          onClick={() => setConfirmOpen(true)}
-          disabled={loading || (!processAll && selectedWordIds.length === 0)}
+          onClick={() => openRunConfirm("selected")}
+          disabled={loading || selectedWordIds.length === 0}
         >
-          {processAll ? "Run Complete Missing on All" : "Run Complete Missing on Selected"}
+          Run Complete Missing on Selected
         </Button>
       }
       secondaryActions={
         <>
+          <Button variant="outline" onClick={() => openRunConfirm("all")} disabled={loading || !qaCandidates?.count}>
+            Run Complete Missing on All
+          </Button>
           <Button variant="outline" onClick={refresh} disabled={loading}>
             Recompute Rules
           </Button>
-          <a
-            className="inline-flex h-9 items-center rounded-md border border-border bg-white px-4 text-sm"
-            href="/manage/staging/"
-          >
-            Open Staging
-          </a>
         </>
       }
     >
@@ -167,28 +171,17 @@ export function ManageQaPage() {
             left={
               <>
                 <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
-                  Model: {settings.aiModel}
+                  Selected: {selectedCount}
                 </div>
-                <label className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={processAll}
-                    aria-label="Process all candidates"
-                    onChange={(event) => setProcessAll(event.target.checked)}
-                  />
-                  Process all candidates ({qaCandidates?.count || 0})
-                </label>
+                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                  Candidates: {qaCandidates?.count || 0}
+                </div>
               </>
             }
             right={
-              <>
-                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
-                  Selected: {selectedWordIds.length}
-                </div>
-                <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
-                  Estimated rows: {estimatedCount}
-                </div>
-              </>
+              <div className="rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground">
+                Estimated rows: {estimatedCount}
+              </div>
             }
           />
 
@@ -199,11 +192,6 @@ export function ManageQaPage() {
             <Button size="sm" variant="outline" onClick={clearSelectedCandidates} disabled={!selectedWordIds.length}>
               Clear selection
             </Button>
-            <span className="text-xs text-muted-foreground">
-              {processAll
-                ? "Process-all mode enabled. Selection is ignored."
-                : "Selection mode enabled."}
-            </span>
           </div>
 
           {!candidateRows.length ? (
@@ -233,7 +221,7 @@ export function ManageQaPage() {
       <ConfirmDialog
         open={confirmOpen}
         title="Run Complete Missing Fields?"
-        description={`Mode: ${processAll ? "all candidates" : "selected words only"}. Estimated rows: ${estimatedCount}.`}
+        description={`Mode: ${runMode === "all" ? "all candidates" : "selected words only"}. Estimated rows: ${estimatedCount}.`}
         confirmLabel="Run"
         onConfirm={launchRun}
         onCancel={() => setConfirmOpen(false)}
@@ -242,7 +230,7 @@ export function ManageQaPage() {
       <ConfirmDialog
         open={startNoticeOpen}
         title="QA job started"
-        description="This job is running in the background. Use Page Jobs or the Jobs tab to track/cancel it."
+        description="This job is running in the background. Use Page Jobs or Jobs to track/cancel it."
         confirmLabel="OK"
         hideCancel
         onConfirm={() => setStartNoticeOpen(false)}

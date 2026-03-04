@@ -18,6 +18,7 @@ from api.views import (
     ManageStagingView,
     ManageValidateView,
     ManageValidationActionView,
+    ManageValidationAcknowledgeView,
     ManifestView,
     WordEntryViewSet,
     random_words,
@@ -46,6 +47,7 @@ urlpatterns = [
     path("manage/validate", ManageValidateView.as_view(), name="manage-validate-api"),
     path("manage/qa/candidates", ManageQACandidatesView.as_view(), name="manage-qa-candidates-api"),
     path("manage/validation/action", ManageValidationActionView.as_view(), name="manage-validation-action-api"),
+    path("manage/validation/acknowledge", ManageValidationAcknowledgeView.as_view(), name="manage-validation-acknowledge-api"),
     path("manage/ai/complete", ManageAICompleteView.as_view(), name="manage-ai-complete-api"),
     path("manage/ai/generate", ManageAIGenerateView.as_view(), name="manage-ai-generate-api"),
 ]

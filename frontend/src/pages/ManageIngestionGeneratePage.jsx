@@ -16,6 +16,7 @@ export function ManageIngestionGeneratePage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [startNoticeOpen, setStartNoticeOpen] = useState(false);
   const [generateForm, setGenerateForm] = useState({
     word_type: "guessing",
     count: 20,
@@ -66,8 +67,13 @@ export function ManageIngestionGeneratePage() {
       setMessage(String(err));
     } finally {
       setLoading(false);
-      setConfirmOpen(false);
     }
+  }
+
+  function launchGeneration() {
+    setConfirmOpen(false);
+    setStartNoticeOpen(true);
+    void runGeneration();
   }
 
   return (
@@ -183,8 +189,18 @@ export function ManageIngestionGeneratePage() {
         title="Generate words into staging?"
         description={`Generate up to ${generateForm.count} ${generateForm.word_type} rows using ${settings.aiModel}.`}
         confirmLabel={loading ? "Generating..." : "Generate"}
-        onConfirm={runGeneration}
+        onConfirm={launchGeneration}
         onCancel={() => setConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={startNoticeOpen}
+        title="Generating"
+        description="AI generation has started in the background. You can close this notice and continue working."
+        confirmLabel="OK"
+        hideCancel
+        onConfirm={() => setStartNoticeOpen(false)}
+        onCancel={() => setStartNoticeOpen(false)}
       />
     </ManagementPageLayout>
   );

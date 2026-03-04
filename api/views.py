@@ -29,6 +29,7 @@ from words.models import (
     ImportBatch,
     StagedWord,
     StagedWordStatus,
+    ValidationIssueAcknowledgement,
     WordEntry,
     WordFeedback,
 )
@@ -298,12 +299,12 @@ class ManageStagingView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
-        status_filter = _as_text(request.query_params.get("status", "pending")).lower()
+        status_filter = _as_text(request.query_params.get("status", "")).lower()
         batch_id_raw = _as_text(request.query_params.get("batch_id", ""))
         try:
-            limit = int(request.query_params.get("limit", 200))
+            limit = int(request.query_params.get("limit", 500))
         except (TypeError, ValueError):
-            limit = 200
+            limit = 500
         limit = max(1, min(limit, 500))
 
         queryset = StagedWord.objects.select_related("batch").order_by("-created_at", "-id")
@@ -591,12 +592,13 @@ class ManageValidateView(APIView):
             for word in WordEntry.objects.filter(id__in=word_ids).select_related("category", "collection")
         }
         enriched = []
-        for issue in issues:
+        for index, issue in enumerate(issues):
             word_id = issue.get("word_id")
             word = words.get(word_id)
             enriched.append(
                 {
                     **issue,
+                    "issue_key": f"{issue.get('severity', '')}:{issue.get('code', '')}:{word_id or 'none'}:{index}",
                     "word": (
                         {
                             "id": word.id,
@@ -614,6 +616,53 @@ class ManageValidateView(APIView):
             )
         report["issues"] = enriched
         return Response(report, status=status.HTTP_200_OK)
+
+
+class ManageValidationAcknowledgeView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        raw_issues = request.data.get("issues", [])
+        if not isinstance(raw_issues, list) or not raw_issues:
+            return Response({"detail": "No issues provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        note = str(request.data.get("note", "")).strip()
+        acknowledged = 0
+        for item in raw_issues:
+            if not isinstance(item, dict):
+                continue
+            code = str(item.get("code", "")).strip()
+            if not code:
+                continue
+            word_id_raw = item.get("word_id")
+            if word_id_raw is None or not str(word_id_raw).isdigit():
+                continue
+            word_id = int(word_id_raw)
+            ack, created = ValidationIssueAcknowledgement.objects.get_or_create(
+                word_id=word_id,
+                severity="warning",
+                code=code,
+                defaults={
+                    "acknowledged_by": request.user,
+                    "note": note,
+                },
+            )
+            if created:
+                acknowledged += 1
+                continue
+            updates = []
+            if ack.acknowledged_by_id != request.user.id:
+                ack.acknowledged_by = request.user
+                updates.append("acknowledged_by")
+            if note and ack.note != note:
+                ack.note = note
+                updates.append("note")
+            if updates:
+                updates.append("updated_at")
+                ack.save(update_fields=updates)
+            acknowledged += 1
+
+        return Response({"acknowledged": acknowledged}, status=status.HTTP_200_OK)
 
 
 class ManageQACandidatesView(APIView):

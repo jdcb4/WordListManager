@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from words.models import WordEntry, WordType
+from words.models import ValidationIssueAcknowledgement, WordEntry, WordType
 
 
 def _issue(*, severity: str, code: str, word_id: int | None, message: str) -> dict:
@@ -94,11 +94,34 @@ def validate_wordlist() -> dict:
                     )
                 )
 
-    errors = [issue for issue in issues if issue["severity"] == "error"]
-    warnings = [issue for issue in issues if issue["severity"] == "warning"]
+    warning_word_ids = sorted(
+        {issue["word_id"] for issue in issues if issue["severity"] == "warning" and issue.get("word_id")}
+    )
+    warning_codes = sorted(
+        {issue["code"] for issue in issues if issue["severity"] == "warning" and issue.get("word_id")}
+    )
+    acknowledged_warning_pairs = set()
+    if warning_word_ids and warning_codes:
+        acknowledged_warning_pairs = set(
+            ValidationIssueAcknowledgement.objects.filter(
+                severity="warning",
+                word_id__in=warning_word_ids,
+                code__in=warning_codes,
+            ).values_list("word_id", "code")
+        )
+
+    filtered_issues = []
+    for issue in issues:
+        if issue["severity"] == "warning" and issue.get("word_id"):
+            if (issue["word_id"], issue["code"]) in acknowledged_warning_pairs:
+                continue
+        filtered_issues.append(issue)
+
+    errors = [issue for issue in filtered_issues if issue["severity"] == "error"]
+    warnings = [issue for issue in filtered_issues if issue["severity"] == "warning"]
     return {
         "checked_words": len(word_rows),
         "error_count": len(errors),
         "warning_count": len(warnings),
-        "issues": issues,
+        "issues": filtered_issues,
     }
