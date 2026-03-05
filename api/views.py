@@ -233,6 +233,19 @@ def _as_text(value) -> str:
     return (value or "").strip() if isinstance(value, str) else (str(value).strip() if value is not None else "")
 
 
+def _validation_word_payload(word: WordEntry) -> dict:
+    return {
+        "id": word.id,
+        "text": word.sanitized_text,
+        "word_type": word.word_type,
+        "word_types": _word_types_for_entry(word),
+        "category": word.category.name if word.category else "",
+        "collection": word.collection.name if word.collection else "",
+        "difficulty": word.difficulty,
+        "hint": word.hint,
+    }
+
+
 def _build_staging_preview(staged_word: StagedWord, existing_word: WordEntry | None) -> dict:
     staged_category = _as_text(staged_word.category_name)
     staged_collection = _as_text(staged_word.collection_name) or "Base"
@@ -586,32 +599,40 @@ class ManageValidateView(APIView):
     def get(self, request):
         report = validate_wordlist()
         issues = report.get("issues", [])
-        word_ids = sorted({issue.get("word_id") for issue in issues if issue.get("word_id")})
+        word_ids = set()
+        for issue in issues:
+            if issue.get("word_id"):
+                word_ids.add(issue["word_id"])
+            duplicate_ids = issue.get("duplicate_word_ids", [])
+            if isinstance(duplicate_ids, list):
+                word_ids.update([value for value in duplicate_ids if isinstance(value, int)])
         words = {
             word.id: word
-            for word in WordEntry.objects.filter(id__in=word_ids).select_related("category", "collection")
+            for word in WordEntry.objects.filter(id__in=sorted(word_ids)).select_related("category", "collection")
         }
         enriched = []
         for index, issue in enumerate(issues):
             word_id = issue.get("word_id")
             word = words.get(word_id)
+            duplicate_hint = None
+            if issue.get("code") == "duplicate_hint":
+                duplicate_ids = [
+                    value
+                    for value in issue.get("duplicate_word_ids", [])
+                    if isinstance(value, int) and value != word_id and value in words
+                ]
+                if len(duplicate_ids) >= 5:
+                    duplicate_hint = {"count": len(duplicate_ids), "mode": "multiple", "words": []}
+                else:
+                    duplicate_words = [_validation_word_payload(words[value]) for value in duplicate_ids]
+                    duplicate_hint = {"count": len(duplicate_ids), "mode": "list", "words": duplicate_words}
+
             enriched.append(
                 {
                     **issue,
                     "issue_key": f"{issue.get('severity', '')}:{issue.get('code', '')}:{word_id or 'none'}:{index}",
-                    "word": (
-                        {
-                            "id": word.id,
-                            "text": word.sanitized_text,
-                            "word_type": word.word_type,
-                            "word_types": _word_types_for_entry(word),
-                            "category": word.category.name if word.category else "",
-                            "collection": word.collection.name if word.collection else "",
-                            "difficulty": word.difficulty,
-                        }
-                        if word
-                        else None
-                    ),
+                    "word": (_validation_word_payload(word) if word else None),
+                    "duplicate_hint": duplicate_hint,
                 }
             )
         report["issues"] = enriched

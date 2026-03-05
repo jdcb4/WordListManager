@@ -7,13 +7,15 @@ from collections import defaultdict
 from words.models import ValidationIssueAcknowledgement, WordEntry, WordType
 
 
-def _issue(*, severity: str, code: str, word_id: int | None, message: str) -> dict:
-    return {
+def _issue(*, severity: str, code: str, word_id: int | None, message: str, **extra) -> dict:
+    payload = {
         "severity": severity,
         "code": code,
         "word_id": word_id,
         "message": message,
     }
+    payload.update(extra)
+    return payload
 
 
 def validate_wordlist() -> dict:
@@ -85,12 +87,14 @@ def validate_wordlist() -> dict:
     for (_, _), ids in hint_buckets.items():
         if len(ids) > 1:
             for word_id in ids:
+                duplicate_word_ids = [candidate for candidate in ids if candidate != word_id]
                 issues.append(
                     _issue(
                         severity="warning",
                         code="duplicate_hint",
                         word_id=word_id,
                         message="Hint text is shared by multiple words in the same category.",
+                        duplicate_word_ids=duplicate_word_ids,
                     )
                 )
 

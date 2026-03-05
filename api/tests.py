@@ -255,4 +255,72 @@ class ManageValidationApiTests(APITestCase):
             )
         )
 
+    def test_duplicate_hint_includes_word_hint_and_duplicate_word_context_when_under_five(self):
+        where, _ = Category.objects.get_or_create(name="Where")
+        primary = WordEntry.objects.create(
+            text="Abu Simbel",
+            word_type=WordType.GUESSING,
+            category=where,
+            hint="Ancient landmark",
+        )
+        peer_one = WordEntry.objects.create(
+            text="Karnak",
+            word_type=WordType.GUESSING,
+            category=where,
+            hint="Ancient landmark",
+        )
+        peer_two = WordEntry.objects.create(
+            text="Adelaide",
+            word_type=WordType.GUESSING,
+            category=where,
+            hint="Ancient landmark",
+        )
+
+        report = self.client.get("/api/v1/manage/validate")
+        self.assertEqual(report.status_code, 200)
+        issue = next(
+            (
+                row
+                for row in report.data["issues"]
+                if row["code"] == "duplicate_hint" and row["word_id"] == primary.id
+            ),
+            None,
+        )
+        self.assertIsNotNone(issue)
+        self.assertEqual(issue["word"]["hint"], "Ancient landmark")
+        self.assertEqual(issue["duplicate_hint"]["mode"], "list")
+        self.assertEqual(issue["duplicate_hint"]["count"], 2)
+        duplicate_rows = issue["duplicate_hint"]["words"]
+        self.assertEqual({row["id"] for row in duplicate_rows}, {peer_one.id, peer_two.id})
+        self.assertTrue(all(row["hint"] == "Ancient landmark" for row in duplicate_rows))
+        self.assertTrue(all(row["category"] == "Where" for row in duplicate_rows))
+
+    def test_duplicate_hint_uses_multiple_mode_when_five_or_more_duplicates(self):
+        where, _ = Category.objects.get_or_create(name="Where")
+        words = []
+        for text in ["Abu Simbel", "Karnak", "Adelaide", "Brisbane", "Canberra", "Darwin"]:
+            words.append(
+                WordEntry.objects.create(
+                    text=text,
+                    word_type=WordType.GUESSING,
+                    category=where,
+                    hint="Shared city hint",
+                )
+            )
+
+        report = self.client.get("/api/v1/manage/validate")
+        self.assertEqual(report.status_code, 200)
+        issue = next(
+            (
+                row
+                for row in report.data["issues"]
+                if row["code"] == "duplicate_hint" and row["word_id"] == words[0].id
+            ),
+            None,
+        )
+        self.assertIsNotNone(issue)
+        self.assertEqual(issue["duplicate_hint"]["mode"], "multiple")
+        self.assertEqual(issue["duplicate_hint"]["count"], 5)
+        self.assertEqual(issue["duplicate_hint"]["words"], [])
+
 # Create your tests here.

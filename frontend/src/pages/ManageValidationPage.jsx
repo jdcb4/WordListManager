@@ -22,6 +22,12 @@ function formatWordTypes(word) {
   return word?.word_type || "-";
 }
 
+function formatHint(value) {
+  if (typeof value !== "string") return "-";
+  const trimmed = value.trim();
+  return trimmed || "-";
+}
+
 export function ManageValidationPage() {
   const { runJob } = useJobTracker();
   const [validation, setValidation] = useState(null);
@@ -275,7 +281,41 @@ export function ManageValidationPage() {
                   <p><span className="text-muted-foreground">Category:</span> {activeIssue.word.category || "-"}</p>
                   <p><span className="text-muted-foreground">Collection:</span> {activeIssue.word.collection || "-"}</p>
                   <p><span className="text-muted-foreground">Difficulty:</span> {activeIssue.word.difficulty || "-"}</p>
+                  <p><span className="text-muted-foreground">Hint:</span> {formatHint(activeIssue.word.hint)}</p>
                 </div>
+              </div>
+            ) : null}
+            {activeIssue.code === "duplicate_hint" ? (
+              <div className="rounded-lg border border-border bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Duplicate hint context
+                </p>
+                {activeIssue.duplicate_hint?.mode === "multiple" ? (
+                  <p className="mt-1">
+                    Hint is duplicated by multiple other words ({activeIssue.duplicate_hint.count}).
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {(activeIssue.duplicate_hint?.words || []).length ? (
+                      (activeIssue.duplicate_hint?.words || []).map((word) => (
+                        <div key={word.id} className="rounded-md border border-border bg-muted/40 p-2">
+                          <p className="font-semibold">{word.text}</p>
+                          <p className="text-xs text-muted-foreground">
+                            id:{word.id} | {formatWordTypes(word)} | {word.category || "-"} | {word.collection || "-"}
+                          </p>
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Difficulty:</span> {word.difficulty || "-"}
+                          </p>
+                          <p className="text-xs">
+                            <span className="text-muted-foreground">Hint:</span> {formatHint(word.hint)}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">No duplicate words found.</p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
