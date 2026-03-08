@@ -1,3 +1,7 @@
+import csv
+import json
+
+from django.conf import settings
 from django.test import TestCase
 
 from words.models import Category, Collection, StagedWordStatus, WordEntry, WordType
@@ -38,6 +42,23 @@ class PublishDatasetTests(TestCase):
         report = run_publish_pipeline(allow_validation_errors=True)
         self.assertFalse(report["blocked_by_validation"])
         self.assertTrue(report["published"])
+
+    def test_publish_writes_latest_exports_with_version_number(self):
+        WordEntry.objects.create(text="Cat", word_type=WordType.DESCRIBING)
+        version, _created = publish_dataset()
+
+        latest_json = settings.EXPORTS_DIR / "latest.json"
+        latest_csv = settings.EXPORTS_DIR / "latest.csv"
+
+        self.assertTrue(latest_json.exists())
+        self.assertTrue(latest_csv.exists())
+
+        json_payload = json.loads(latest_json.read_text(encoding="utf-8"))
+        self.assertEqual(json_payload[0]["versionNumber"], version.version_number)
+
+        with latest_csv.open("r", encoding="utf-8", newline="") as file_obj:
+            rows = list(csv.DictReader(file_obj))
+        self.assertEqual(int(rows[0]["versionNumber"]), version.version_number)
 
 
 class QualityTests(TestCase):

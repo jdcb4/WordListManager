@@ -4,6 +4,7 @@ from webui.views import (
     apply_validation_action,
     bulk_resolve_feedback,
     bulk_review_staging,
+    download_latest_export,
     feedback_home,
     feedback_swipe,
     home,
@@ -33,6 +34,7 @@ from webui.views import (
 urlpatterns = [
     path("", home, name="home"),
     path("landing/", home, name="landing-home"),
+    path("exports/latest.<str:export_format>", download_latest_export, name="download-latest-export"),
     path("feedback/", feedback_home, name="feedback-home"),
     path("feedback/swipe/", feedback_swipe, name="feedback-swipe"),
     path("feedback/app/", feedback_swipe, name="feedback-app"),

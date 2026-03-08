@@ -34,6 +34,7 @@ from words.models import (
     WordFeedback,
 )
 from words.services.ai import AIServiceError, DEFAULT_MODEL, complete_word_templates, generate_words
+from words.services.datasets import latest_export_path
 from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
@@ -187,15 +188,17 @@ class LatestExportView(APIView):
         if latest is None:
             raise Http404("No published dataset found.")
         artifact = latest.artifacts.filter(export_format=export_format).first()
-        if artifact is None:
-            raise Http404("Requested artifact not found.")
-
-        path = Path(artifact.file_path)
-        if not path.exists():
+        candidate_paths = [latest_export_path(export_format)]
+        if artifact is not None:
+            candidate_paths.append(Path(artifact.file_path))
+        path = next((candidate for candidate in candidate_paths if candidate.exists()), None)
+        if path is None:
             raise Http404("Artifact file missing on server.")
 
-        response = FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
-        response["ETag"] = artifact.checksum_sha256
+        download_name = f"wordlist_v{latest.version_number}.{export_format}"
+        response = FileResponse(path.open("rb"), as_attachment=True, filename=download_name)
+        if artifact is not None and artifact.checksum_sha256:
+            response["ETag"] = artifact.checksum_sha256
         response["X-Wordlist-Version"] = str(latest.version_number)
         return response
 

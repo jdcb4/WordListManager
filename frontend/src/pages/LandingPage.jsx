@@ -262,13 +262,13 @@ export function LandingPage() {
         title="Word Library"
         description="Search and browse the published dataset. Filters and sorting update results automatically."
         primaryAction={
-          <a className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" href="/api/v1/exports/latest.csv">
+          <a className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground" href="/exports/latest.csv">
             Download CSV
           </a>
         }
         secondaryActions={
           <>
-            <a className="inline-flex h-9 items-center rounded-md border border-border bg-white px-4 text-sm" href="/api/v1/exports/latest.json">
+            <a className="inline-flex h-9 items-center rounded-md border border-border bg-white px-4 text-sm" href="/exports/latest.json">
               Download JSON
             </a>
             <Button variant="outline" onClick={() => setFilters({ q: "", word_type: [], category: [], collection: [], difficulty: [] })}>

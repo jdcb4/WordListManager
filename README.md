@@ -173,6 +173,7 @@ See [ui-modernization-plan.md](docs/ui-modernization-plan.md) for a non-implemen
 Latest implementation and architecture review:
 
 - [project-review-2026-03-01.md](docs/project-review-2026-03-01.md)
+- [get-words-api.md](docs/get-words-api.md) (end-user API quick reference)
 
 ## React transition
 

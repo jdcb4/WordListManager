@@ -12,6 +12,8 @@ from django.db import transaction
 
 from words.models import DatasetVersion, ExportArtifact, ExportFormat, WordEntry
 
+LATEST_EXPORT_BASENAME = "latest"
+
 
 def _word_to_dict(word: WordEntry) -> dict:
     word_types = []
@@ -58,15 +60,29 @@ def _hash_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _write_json(path: Path, payload: list[dict]) -> None:
+def latest_export_path(export_format: str) -> Path:
+    if export_format not in {ExportFormat.CSV, ExportFormat.JSON}:
+        raise ValueError(f"Unsupported export format: {export_format}")
+    return settings.EXPORTS_DIR / f"{LATEST_EXPORT_BASENAME}.{export_format}"
+
+
+def _rows_with_version(payload: list[dict], version_number: int) -> list[dict]:
+    return [{**item, "versionNumber": version_number} for item in payload]
+
+
+def _write_json(path: Path, payload: list[dict], version_number: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = _rows_with_version(payload, version_number)
     with path.open("w", encoding="utf-8", newline="\n") as file_obj:
-        json.dump(payload, file_obj, indent=2, ensure_ascii=False)
+        json.dump(rows, file_obj, indent=2, ensure_ascii=False)
         file_obj.write("\n")
 
 
-def _write_csv(path: Path, payload: list[dict]) -> None:
+def _write_csv(path: Path, payload: list[dict], version_number: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "id",
+        "versionNumber",
         "word",
         "wordType",
         "wordTypes",
@@ -84,9 +100,35 @@ def _write_csv(path: Path, payload: list[dict]) -> None:
         rows = []
         for item in payload:
             row = dict(item)
+            row["versionNumber"] = version_number
             row["wordTypes"] = json.dumps(row.get("wordTypes", []), ensure_ascii=False)
             rows.append(row)
         writer.writerows(rows)
+
+
+def _write_export_files(payload: list[dict], version_number: int) -> dict[str, Path]:
+    prefix = f"wordlist_v{version_number}"
+    paths = {
+        ExportFormat.JSON: settings.EXPORTS_DIR / f"{prefix}.json",
+        ExportFormat.CSV: settings.EXPORTS_DIR / f"{prefix}.csv",
+    }
+    _write_json(paths[ExportFormat.JSON], payload, version_number)
+    _write_csv(paths[ExportFormat.CSV], payload, version_number)
+    _write_json(latest_export_path(ExportFormat.JSON), payload, version_number)
+    _write_csv(latest_export_path(ExportFormat.CSV), payload, version_number)
+    return paths
+
+
+def _upsert_artifact(dataset_version: DatasetVersion, export_format: str, path: Path) -> None:
+    ExportArtifact.objects.update_or_create(
+        dataset_version=dataset_version,
+        export_format=export_format,
+        defaults={
+            "file_path": str(path),
+            "file_size_bytes": path.stat().st_size,
+            "checksum_sha256": _hash_file(path),
+        },
+    )
 
 
 def publish_dataset(force: bool = False) -> tuple[DatasetVersion, bool]:
@@ -94,15 +136,14 @@ def publish_dataset(force: bool = False) -> tuple[DatasetVersion, bool]:
     checksum = payload_checksum(payload)
     latest = DatasetVersion.latest()
     if latest and latest.checksum_sha256 == checksum and not force:
+        export_paths = _write_export_files(payload, latest.version_number)
+        with transaction.atomic():
+            _upsert_artifact(latest, ExportFormat.JSON, export_paths[ExportFormat.JSON])
+            _upsert_artifact(latest, ExportFormat.CSV, export_paths[ExportFormat.CSV])
         return latest, False
 
     version_number = DatasetVersion.next_version_number()
-    prefix = f"wordlist_v{version_number}"
-    json_path = settings.EXPORTS_DIR / f"{prefix}.json"
-    csv_path = settings.EXPORTS_DIR / f"{prefix}.csv"
-
-    _write_json(json_path, payload)
-    _write_csv(csv_path, payload)
+    export_paths = _write_export_files(payload, version_number)
 
     with transaction.atomic():
         dataset_version = DatasetVersion.objects.create(
@@ -110,18 +151,6 @@ def publish_dataset(force: bool = False) -> tuple[DatasetVersion, bool]:
             checksum_sha256=checksum,
             active_word_count=len(payload),
         )
-        ExportArtifact.objects.create(
-            dataset_version=dataset_version,
-            export_format=ExportFormat.JSON,
-            file_path=str(json_path),
-            file_size_bytes=json_path.stat().st_size,
-            checksum_sha256=_hash_file(json_path),
-        )
-        ExportArtifact.objects.create(
-            dataset_version=dataset_version,
-            export_format=ExportFormat.CSV,
-            file_path=str(csv_path),
-            file_size_bytes=csv_path.stat().st_size,
-            checksum_sha256=_hash_file(csv_path),
-        )
+        _upsert_artifact(dataset_version, ExportFormat.JSON, export_paths[ExportFormat.JSON])
+        _upsert_artifact(dataset_version, ExportFormat.CSV, export_paths[ExportFormat.CSV])
     return dataset_version, True

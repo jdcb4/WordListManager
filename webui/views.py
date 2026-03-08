@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db.models import Count, Max, Min
-from django.http import HttpRequest, HttpResponse
+from django.http import FileResponse, Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -20,6 +20,7 @@ from words.models import (
     Category,
     Collection,
     DatasetVersion,
+    ExportFormat,
     FeedbackResolution,
     FeedbackVerdict,
     ImportBatch,
@@ -29,6 +30,7 @@ from words.models import (
     WordFeedback,
 )
 from words.services.ai import AIServiceError, DEFAULT_MODEL, complete_word_templates, generate_words
+from words.services.datasets import latest_export_path
 from words.services.maintenance import dedupe_word_entries
 from words.services.pipeline import run_publish_pipeline
 from words.services.quality import validate_wordlist
@@ -136,6 +138,33 @@ def home(request):
         "total_active": WordEntry.objects.filter(is_active=True).count(),
     }
     return render(request, "webui/home.html", context)
+
+
+def download_latest_export(request: HttpRequest, export_format: str) -> HttpResponse:
+    if export_format not in {ExportFormat.CSV, ExportFormat.JSON}:
+        raise Http404("Unsupported format.")
+
+    latest = DatasetVersion.latest()
+    if latest is None:
+        raise Http404("No published dataset found.")
+
+    artifact = latest.artifacts.filter(export_format=export_format).first()
+    candidate_paths = [latest_export_path(export_format)]
+    if artifact is not None:
+        candidate_paths.append(Path(artifact.file_path))
+    path = next((candidate for candidate in candidate_paths if candidate.exists()), None)
+    if path is None:
+        raise Http404("Export file missing on server.")
+
+    response = FileResponse(
+        path.open("rb"),
+        as_attachment=True,
+        filename=f"wordlist_v{latest.version_number}.{export_format}",
+    )
+    if artifact is not None and artifact.checksum_sha256:
+        response["ETag"] = artifact.checksum_sha256
+    response["X-Wordlist-Version"] = str(latest.version_number)
+    return response
 
 
 @login_required

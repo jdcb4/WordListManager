@@ -1,3 +1,5 @@
+import json
+
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -51,6 +53,15 @@ class ApiSmokeTests(APITestCase):
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(WordFeedback.objects.count(), 1)
+
+    def test_latest_export_download_includes_versioned_filename_and_payload_version(self):
+        response = self.client.get("/api/v1/exports/latest.json")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("wordlist_v1.json", response["Content-Disposition"])
+        body = b"".join(response.streaming_content)
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(payload[0]["versionNumber"], 1)
+        self.assertEqual(response["X-Wordlist-Version"], "1")
 
     def test_word_list_multi_filter_supports_csv_values(self):
         who, _ = Category.objects.get_or_create(name="Who")

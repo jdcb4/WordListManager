@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.test.utils import override_settings
 
 from words.models import FeedbackResolution, FeedbackVerdict, StagedWordStatus, WordEntry, WordFeedback, WordType
+from words.services.datasets import publish_dataset
 from words.services.staging import create_batch_from_csv
 
 User = get_user_model()
@@ -95,6 +96,13 @@ class ManagementBulkActionTests(TestCase):
     def test_feedback_app_page_renders(self):
         response = self.client.get("/feedback/app/")
         self.assertEqual(response.status_code, 200)
+
+    def test_latest_export_download_route_returns_file(self):
+        WordEntry.objects.create(text="Canyon", word_type=WordType.DESCRIBING)
+        version, _created = publish_dataset()
+        response = self.client.get("/exports/latest.csv")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(f"wordlist_v{version.version_number}.csv", response["Content-Disposition"])
 
     def test_manage_validation_page_renders(self):
         WordEntry.objects.create(text="Twig", word_type=WordType.DESCRIBING)
